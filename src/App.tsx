@@ -32,7 +32,12 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header no-print">
-        <h1>SOROBAN</h1>
+        <h1>
+          <button className="app-title-link" onClick={() => setTab('import')} title="最初の画面に戻る">
+            SOROBAN
+          </button>
+          <span className="app-header-tagline">請求書</span>
+        </h1>
         <nav>
           {TABS.map(([key, label]) => (
             <button key={key} className={tab === key ? 'tab active' : 'tab'} onClick={() => setTab(key)}>
