@@ -12,7 +12,7 @@ export interface WorkRecord {
   staffName: string
   /** 規制保安員 / 作業員 など。単価と内訳書を分ける単位 */
   jobType: string
-  /** その日の作業内容(内訳書の「工事名」) */
+  /** その日の工事名(内訳書の「工事名」欄。SHIRUBEで空なら現場名) */
   work: string
   shiftType: string // 日勤 / 夜勤
   start: string // HH:MM
@@ -36,6 +36,8 @@ export interface EquipmentRecord {
   item: string
   quantity: number
   slipNo: string
+  /** csv = 機材明細CSVから / manual = SOROBANで手入力 */
+  source: 'csv' | 'manual'
 }
 
 export type RoundingMode = 'floor' | 'round' | 'ceil'
@@ -54,6 +56,12 @@ export interface Company {
 
 /** ninku = 人工(人数)で請求 / hourly = 延べ時間で請求 */
 export type BillingMethod = 'ninku' | 'hourly'
+/**
+ * 昼夜の分け方
+ * band  = 時間帯で分ける(時間単価なら1人の勤務を昼・夜の時間に分割、人工なら長いほうの時間帯)
+ * shift = 実績の勤務区分に従う(夜勤なら全時間を夜間単価。「夜間1名」の受注で17:00開始でも夜間単価、など)
+ */
+export type DayNightRule = 'band' | 'shift'
 /** perDay = 1日1人工 / prorate = 実働時間 ÷ 所定時間 で按分 */
 export type NinkuMode = 'perDay' | 'prorate'
 
@@ -65,7 +73,9 @@ export interface Client {
   ninkuMode: NinkuMode
   /** 按分時の1人工あたりの所定実働分 */
   standardMinutes: number
-  /** 時間単価のとき、夜勤単価にする時間帯(HH:MM、終了が開始より前なら翌日まで) */
+  /** 昼夜の分け方 */
+  dayNightRule: DayNightRule
+  /** 昼夜を時間帯で分けるときの夜間帯(HH:MM、終了が開始より前なら翌日まで) */
   nightStart: string
   nightEnd: string
   /** 締め日。0 = 末日 */
@@ -86,6 +96,8 @@ export interface Site {
   coverName: string
   /** 表紙の「仕様」欄 */
   spec: string
+  /** 昼夜の分け方を元請けの設定から変える場合に指定(空 = 元請けの設定) */
+  dayNightRule: DayNightRule | ''
 }
 
 /** 人の単価(元請け × 現場 × 職種) */

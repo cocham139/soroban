@@ -1,7 +1,8 @@
-import type { EquipmentRecord, Issue, WorkRecord } from '../types'
+import type { EquipmentRecord, Issue, Masters, WorkRecord } from '../types'
 import { decodeBytes } from '../lib/csv'
 import { parseAnyCsv } from '../lib/records'
 import IssueList from './IssueList'
+import EquipmentEditor from './EquipmentEditor'
 
 interface Props {
   records: WorkRecord[]
@@ -10,9 +11,10 @@ interface Props {
   setEquipment: (e: EquipmentRecord[]) => void
   issues: Issue[]
   setIssues: (i: Issue[]) => void
+  masters: Masters
 }
 
-export default function ImportView({ records, setRecords, equipment, setEquipment, issues, setIssues }: Props) {
+export default function ImportView({ records, setRecords, equipment, setEquipment, issues, setIssues, masters }: Props) {
   async function onFiles(files: File[]) {
     if (files.length === 0) return
     let allRecords = records
@@ -39,7 +41,7 @@ export default function ImportView({ records, setRecords, equipment, setEquipmen
   }
 
   function clear() {
-    if (!confirm('取り込んだ実績・機材をすべて消します。よろしいですか?')) return
+    if (!confirm('取り込んだ実績・機材(手入力した機材も含む)をすべて消します。よろしいですか?')) return
     setRecords([])
     setEquipment([])
     setIssues([])
@@ -101,6 +103,8 @@ export default function ImportView({ records, setRecords, equipment, setEquipmen
           </tbody>
         </table>
       )}
+
+      <EquipmentEditor records={records} equipment={equipment} setEquipment={setEquipment} masters={masters} />
     </section>
   )
 }

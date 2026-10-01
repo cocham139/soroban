@@ -5,7 +5,7 @@ const header = RECORD_COLUMNS.map((c) => c.label).join(',')
 const BASE: Record<string, string> = {
   実績ID: 'R1', 勤務日: '2026-10-01', 元請けID: 'C001', 元請け名: '○○建設',
   現場ID: 'S01', 現場名: 'Aビル', ポストID: 'P1', ポスト名: '正門',
-  隊員ID: 'E1', 隊員名: '山田', 職種: '規制保安員', 作業内容: '舗装補修',
+  隊員ID: 'E1', 隊員名: '山田', 職種: '規制保安員', 工事名: '舗装補修',
   勤務区分: '日勤', 開始: '08:00', 終了: '17:00',
   休憩分: '60', 実働分: '480', 残業分: '0', 伝票番号: 'D-1', 状態: '確定',
 }
@@ -25,7 +25,7 @@ describe('parseWorkRecords', () => {
   })
 
   it('任意の列(職種・作業内容・残業分など)はなくても読める', () => {
-    const optional = ['元請け名', '現場名', 'ポストID', 'ポスト名', '隊員ID', '隊員名', '職種', '作業内容', '残業分', '伝票番号']
+    const optional = ['元請け名', '現場名', 'ポストID', 'ポスト名', '隊員ID', '隊員名', '職種', '工事名', '残業分', '伝票番号']
     const cols = RECORD_COLUMNS.filter((c) => !optional.includes(c.label))
     const text = `${cols.map((c) => c.label).join(',')}\n${cols.map((c) => BASE[c.label]).join(',')}`
     const { records, issues } = parseWorkRecords(text, 'a.csv')
@@ -44,6 +44,12 @@ describe('parseWorkRecords', () => {
     const { records, issues } = parseWorkRecords(text, 'a.csv')
     expect(records).toEqual([])
     expect(issues.filter((i) => i.level === 'error')).toHaveLength(3)
+  })
+
+  it('「作業内容」の列名でも工事名として読む。工事名が空なら現場名を使う', () => {
+    const text = header.replace('工事名', '作業内容') + '\n' + row() + '\n' + row({ 実績ID: 'R2', 工事名: '' })
+    const { records } = parseWorkRecords(text, 'a.csv')
+    expect(records.map((r) => r.work)).toEqual(['舗装補修', 'Aビル'])
   })
 
   it('時刻の0埋めをそろえる', () => {
@@ -71,7 +77,7 @@ describe('parseEquipment', () => {
     const text = `${eqHeader}\nM1,2026-10-01,C001,S01,除草,車両トラック,2,D-1`
     const { equipment, issues } = parseEquipment(text, 'm.csv')
     expect(issues).toEqual([])
-    expect(equipment[0]).toMatchObject({ item: '車両トラック', quantity: 2, work: '除草' })
+    expect(equipment[0]).toMatchObject({ item: '車両トラック', quantity: 2, work: '除草', source: 'csv' })
   })
   it('数量が整数でなければエラー', () => {
     const { equipment, issues } = parseEquipment(`${eqHeader}\nM1,2026-10-01,C001,S01,,車両,1.5,`, 'm.csv')

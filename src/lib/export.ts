@@ -52,7 +52,7 @@ export const BREAKDOWN_CSV_HEADER = [
   '現場ID',
   '内訳書',
   '日付',
-  '作業内容',
+  '工事名',
   '時間',
   '項目',
   '数量',

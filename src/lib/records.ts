@@ -5,9 +5,16 @@ interface Column {
   label: string
   key: string
   required: boolean
+  /** 同じ意味で受け付ける別名 */
+  aliases?: string[]
 }
 
-const col = (label: string, key: string, required = true): Column => ({ label, key, required })
+const col = (label: string, key: string, required = true, aliases: string[] = []): Column => ({
+  label,
+  key,
+  required,
+  aliases,
+})
 
 /** SHIRUBE 実績明細CSVの列(ヘッダーは日本語固定。順番は問わない) */
 export const RECORD_COLUMNS: Column[] = [
@@ -22,7 +29,7 @@ export const RECORD_COLUMNS: Column[] = [
   col('隊員ID', 'staffId', false),
   col('隊員名', 'staffName', false),
   col('職種', 'jobType', false),
-  col('作業内容', 'work', false),
+  col('工事名', 'work', false, ['作業内容']),
   col('勤務区分', 'shiftType'),
   col('開始', 'start'),
   col('終了', 'end'),
@@ -39,7 +46,7 @@ export const EQUIPMENT_COLUMNS: Column[] = [
   col('勤務日', 'date'),
   col('元請けID', 'clientId'),
   col('現場ID', 'siteId'),
-  col('作業内容', 'work', false),
+  col('工事名', 'work', false, ['作業内容']),
   col('品目', 'item'),
   col('数量', 'quantity'),
   col('伝票番号', 'slipNo', false),
@@ -62,7 +69,7 @@ function readTable(text: string, fileName: string, columns: Column[]) {
   const index = new Map<string, number>()
   const missing: string[] = []
   for (const c of columns) {
-    const i = header.indexOf(c.label)
+    const i = [c.label, ...(c.aliases ?? [])].map((l) => header.indexOf(l)).find((x) => x !== -1) ?? -1
     if (i !== -1) index.set(c.key, i)
     else if (c.required) missing.push(c.label)
   }
@@ -162,7 +169,8 @@ export function parseWorkRecords(
       staffId: get('staffId'),
       staffName: get('staffName'),
       jobType: get('jobType'),
-      work: get('work'),
+      // 工事名がなければ現場名を使う(内訳書の「工事名」欄が空にならないように)
+      work: get('work') || get('siteName'),
       shiftType: get('shiftType'),
       start: get('start').padStart(5, '0'),
       end: get('end').padStart(5, '0'),
@@ -246,6 +254,7 @@ export function parseEquipment(
       item: get('item'),
       quantity,
       slipNo: get('slipNo'),
+      source: 'csv',
     })
   })
   if (duplicated.length > 0) {

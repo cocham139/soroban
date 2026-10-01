@@ -4,6 +4,7 @@ import type {
   BreakdownRow,
   Client,
   CoverLine,
+  DayNightRule,
   EquipmentRecord,
   ExpenseLine,
   Invoice,
@@ -96,6 +97,7 @@ function personBreakdown(
   records: WorkRecord[],
   client: Client,
   rate: Rate,
+  rule: DayNightRule,
   title: string,
   issues: Issue[],
 ): { breakdown: Breakdown; rows: Map<string, RowAcc> } {
@@ -125,16 +127,18 @@ function personBreakdown(
     }
     const add = (k: string, n: number) => (acc!.minutes[k] = (acc!.minutes[k] ?? 0) + n)
 
+    const split = rule === 'band' ? splitDayNight(r.start, r.end, r.breakMinutes, client.nightStart, client.nightEnd) : null
+    if (split && hourly && split.day + split.night !== r.workMinutes) mismatched.push(r.id)
+
     if (hourly) {
-      const split = splitDayNight(r.start, r.end, r.breakMinutes, client.nightStart, client.nightEnd)
-      // 実働分を正とし、計算上の日勤分を超えた分を夜勤とする
-      const day = Math.min(split.day, r.workMinutes)
-      if (split.day + split.night !== r.workMinutes) mismatched.push(r.id)
+      // 実働分を正とし、計算上の日勤分を超えた分を夜勤とする。勤務区分に従う場合は全時間をどちらかに
+      const day = split ? Math.min(split.day, r.workMinutes) : isNight(r.shiftType) ? 0 : r.workMinutes
       add('day', day)
       add('night', r.workMinutes - day)
     } else {
       const regular = r.workMinutes - r.overtimeMinutes
-      const k = isNight(r.shiftType) ? 'night' : 'day'
+      const night = split ? split.night > split.day : isNight(r.shiftType)
+      const k = night ? 'night' : 'day'
       // 人工は「1日1人工」なら1人、按分なら所定内実働の分(あとで所定実働で割る)
       add(k, prorate ? regular : 1)
       add('overtime', r.overtimeMinutes)
@@ -223,12 +227,12 @@ function buildBody(
         })
         return
       }
-      const p = personBreakdown(list, client, rate, title, issues)
+      const p = personBreakdown(list, client, rate, site?.dayNightRule || client.dayNightRule, title, issues)
       parts.push({ ...p, breakdown: { ...p.breakdown, siteId }, keep: ['day', 'night'] })
     })
 
     if (siteEquipment.length > 0) {
-      // 機材は1枚目の内訳書に、同じ日・同じ作業内容の行があればその行に載せる
+      // 機材は1枚目の内訳書に、同じ日・同じ工事名の行があればその行に載せる
       if (parts.length === 0) {
         parts.push({
           breakdown: { siteId, title: baseTitle, columns: [], rows: [], totals: {}, amount: 0 },
@@ -240,11 +244,14 @@ function buildBody(
       const itemColumns = new Map<string, BreakdownColumn>()
       for (const e of siteEquipment) {
         const price = findBySite(masters.equipmentRates, client.id, siteId, (x) => x.item === e.item)
-        if (!price) continue
+        if (!price || e.quantity === 0) continue
         const key = `eq:${e.item}`
         if (!itemColumns.has(key)) itemColumns.set(key, { key, label: e.item, unit: '台', unitPrice: price.unitPrice })
         const acc =
-          [...target.rows.values()].find((a) => a.row.date === e.date && a.row.work === e.work) ??
+          // 工事名が空の機材は、その日の最初の行に載せる
+          [...target.rows.values()]
+            .filter((a) => a.row.date === e.date && (!e.work || a.row.work === e.work))
+            .sort((x, y) => x.row.time.localeCompare(y.row.time))[0] ??
           (() => {
             const created: RowAcc = { row: { date: e.date, work: e.work, time: '', quantities: {}, amounts: {}, amount: 0 }, minutes: {} }
             target.rows.set(rowKey(e.date, e.work, ''), created)

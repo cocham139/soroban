@@ -1,8 +1,8 @@
 // サンプルの実績明細CSV・機材明細CSV(すべて架空のデータ)を作る: node sample/make-sample.mjs
 import { writeFileSync } from 'node:fs'
 
-const RECORD_HEADER = ['実績ID','勤務日','元請けID','元請け名','現場ID','現場名','ポストID','ポスト名','隊員ID','隊員名','職種','作業内容','勤務区分','開始','終了','休憩分','実働分','残業分','伝票番号','状態']
-const EQUIPMENT_HEADER = ['機材明細ID','勤務日','元請けID','現場ID','作業内容','品目','数量','伝票番号']
+const RECORD_HEADER = ['実績ID','勤務日','元請けID','元請け名','現場ID','現場名','ポストID','ポスト名','隊員ID','隊員名','職種','工事名','勤務区分','開始','終了','休憩分','実働分','残業分','伝票番号','状態']
+const EQUIPMENT_HEADER = ['機材明細ID','勤務日','元請けID','現場ID','工事名','品目','数量','伝票番号']
 
 const records = []
 const equipment = []
@@ -22,7 +22,7 @@ function work(date, client, site, task, people, start, end, opts = {}) {
     records.push([
       `R${date.replaceAll('-', '')}-${String(n).padStart(4, '0')}`, date, ...client, ...site, 'P1', '規制帯',
       `E${String(staffNo).padStart(3, '0')}`, `隊員${staffNo}`, opts.job ?? '規制保安員', task,
-      toMin(start) >= toMin('18:00') ? '夜勤' : '日勤', start, end, brk, span(start, end) - brk, 0,
+      opts.shift ?? (toMin(start) >= toMin('18:00') ? '夜勤' : '日勤'), start, end, brk, span(start, end) - brk, 0,
       opts.noSlip && i === 0 ? '' : slip, opts.unconfirmed && i === 0 ? '未確定' : '確定',
     ])
   }
@@ -60,6 +60,11 @@ const minato = ['C002', 'みなと土木株式会社']
 const S10 = ['S10', '河川護岸工事']
 for (let d = 21; d <= 30; d++) work(day(9, d), minato, S10, '工事車両誘導', 2, '08:00', '17:00')
 for (let d = 1; d <= 25; d++) work(day(10, d), minato, S10, '工事車両誘導', 2, '08:00', '17:00')
+
+// C003: 勤務区分に従う(夜間の受注なら17:00開始でも夜間単価)。機材は手入力する想定でCSVなし
+const hikari = ['C003', 'ひかり電設株式会社']
+const S20 = ['S20', '駅前通り 電線共同溝工事']
+for (let d = 5; d <= 23; d += 3) work(day(10, d), hikari, S20, '夜間規制', 2, '17:00', '02:00', { shift: '夜勤' })
 
 const esc = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replaceAll('"', '""')}"` : String(v))
 const csv = (rows) => '﻿' + rows.map((r) => r.map(esc).join(',')).join('\r\n') + '\r\n'

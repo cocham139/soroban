@@ -1,5 +1,5 @@
 import type { ChangeEvent, ReactNode } from 'react'
-import type { Client, Company, EquipmentRecord, Masters, RoundingMode, WorkRecord } from '../types'
+import type { Client, Company, DayNightRule, EquipmentRecord, Masters, RoundingMode, Site, WorkRecord } from '../types'
 import {
   missingClients,
   missingEquipmentRates,
@@ -159,18 +159,23 @@ export default function MastersView({ masters, setMasters, records, equipment }:
 
       <h3>元請け</h3>
       <p className="hint">
-        計算方式が「時間単価」なら延べ時間 × 時間単価で、夜勤帯に入る時間は夜勤単価になります
-        (例: 夜勤帯 20:00〜05:00 なら、19:00〜04:00 休憩60分の勤務は 日勤1時間・夜勤7時間)。
+        「昼夜の分け方」が「時間帯で分ける」なら、夜間帯に入る時間を夜間単価にします
+        (例: 夜間帯 20:00〜06:00 なら、19:00〜04:00 休憩60分の勤務は 昼1時間・夜7時間。人工なら長いほうの単価)。
+        「勤務区分に従う」なら、実績の勤務区分が夜勤のものは時刻に関係なく全時間を夜間単価にします(夜間の受注で17:00開始など)。
       </p>
       <MissingCallout
         count={missingClients(records, masters).length}
         what="元請け"
         onAdd={() => append('clients', missingClients(records, masters))}
       />
-      <Table head={['ID', '正式名称', '敬称', '計算方式', '夜勤帯', '人工の数え方', '所定実働(分)', '締め日', '支払', '請求単位', '経費']}>
+      <Table head={['ID', '正式名称', '敬称', '計算方式', '昼夜の分け方', '夜間帯', '人工の数え方', '所定実働(分)', '締め日', '支払', '請求単位', '経費']}>
         {masters.clients.map((cl, i) => {
           const set = (patch: Partial<Client>) => update('clients', i, patch)
           const hourly = cl.billingMethod === 'hourly'
+          // 夜間帯を使うのは、元請けか現場のどちらかが「時間帯で分ける」場合
+          const siteRules = masters.sites.filter((x) => x.clientId === cl.id && x.dayNightRule).map((x) => x.dayNightRule)
+          const band: boolean | 'mixed' =
+            cl.dayNightRule === 'band' ? true : siteRules.includes('band') ? 'mixed' : false
           return (
             <tr key={i}>
               <td><input className="s" value={cl.id} onChange={(e) => set({ id: e.target.value })} /></td>
@@ -182,10 +187,17 @@ export default function MastersView({ masters, setMasters, records, equipment }:
                   <option value="ninku">人工</option>
                 </select>
               </td>
+              <td>
+                <select value={cl.dayNightRule} onChange={(e) => set({ dayNightRule: e.target.value as DayNightRule })}>
+                  <option value="band">時間帯で分ける</option>
+                  <option value="shift">勤務区分に従う</option>
+                </select>
+              </td>
               <td className="nowrap">
-                <input type="time" disabled={!hourly} value={cl.nightStart} onChange={(e) => e.target.value && set({ nightStart: e.target.value })} />
+                <input type="time" disabled={band === false} value={cl.nightStart} onChange={(e) => e.target.value && set({ nightStart: e.target.value })} />
                 〜
-                <input type="time" disabled={!hourly} value={cl.nightEnd} onChange={(e) => e.target.value && set({ nightEnd: e.target.value })} />
+                <input type="time" disabled={band === false} value={cl.nightEnd} onChange={(e) => e.target.value && set({ nightEnd: e.target.value })} />
+                {band === 'mixed' && <span className="sub">現場によって使う</span>}
               </td>
               <td>
                 <select disabled={hourly} value={cl.ninkuMode} onChange={(e) => set({ ninkuMode: e.target.value as Client['ninkuMode'] })}>
@@ -235,19 +247,27 @@ export default function MastersView({ masters, setMasters, records, equipment }:
       <h3>現場</h3>
       <p className="hint">
         表紙に載せる現場名(改行できます)と「仕様」欄の文言です。空欄ならCSVの現場名と「{DEFAULT_SPEC}」を使います。
+        この現場だけ昼夜の分け方が違う場合は「昼夜の分け方」で指定します。
       </p>
       <MissingCallout
         count={missingSites(records, equipment, masters).length}
         what="現場"
         onAdd={() => append('sites', missingSites(records, equipment, masters))}
       />
-      <Table head={['元請け', '現場ID', '表紙の現場名', '仕様']}>
+      <Table head={['元請け', '現場ID', '表紙の現場名', '仕様', '昼夜の分け方']}>
         {masters.sites.map((s, i) => (
           <tr key={i}>
             <td>{clientSelect(s.clientId, (v) => update('sites', i, { clientId: v }))}</td>
             <td><input className="s" value={s.siteId} onChange={(e) => update('sites', i, { siteId: e.target.value })} /></td>
             <td><textarea rows={2} cols={32} value={s.coverName} onChange={(e) => update('sites', i, { coverName: e.target.value })} /></td>
             <td><input placeholder={DEFAULT_SPEC} value={s.spec} onChange={(e) => update('sites', i, { spec: e.target.value })} /></td>
+            <td>
+              <select value={s.dayNightRule} onChange={(e) => update('sites', i, { dayNightRule: e.target.value as Site['dayNightRule'] })}>
+                <option value="">元請けの設定</option>
+                <option value="band">時間帯で分ける</option>
+                <option value="shift">勤務区分に従う</option>
+              </select>
+            </td>
             {removeButton('sites', i, s.coverName || s.siteId)}
           </tr>
         ))}

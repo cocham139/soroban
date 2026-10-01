@@ -28,8 +28,9 @@ export function newClient(id: string, name: string): Client {
     billingMethod: 'hourly',
     ninkuMode: 'perDay',
     standardMinutes: 480,
+    dayNightRule: 'band',
     nightStart: '20:00',
-    nightEnd: '05:00',
+    nightEnd: '06:00',
     closingDay: 0,
     paymentMonthOffset: 1,
     paymentDay: 0,
@@ -39,7 +40,7 @@ export function newClient(id: string, name: string): Client {
 }
 
 export function newSite(clientId: string, siteId: string, coverName = ''): Site {
-  return { clientId, siteId, coverName, spec: '' }
+  return { clientId, siteId, coverName, spec: '', dayNightRule: '' }
 }
 
 export function newRate(clientId: string, siteId: string, jobType: string): Rate {

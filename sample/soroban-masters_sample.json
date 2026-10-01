@@ -1,46 +1,38 @@
 {
   "version": 2,
   "company": {
-    "name": "サンプル警備保障株式会社",
-    "postalCode": "000-0000",
-    "address": "○○県○○市○○町1-2-3",
-    "tel": "000-000-0000",
-    "fax": "000-000-0001",
-    "registrationNo": "T0000000000000",
-    "bankInfo": "○○銀行 ○○支店 普通 0000000\nサンプルケイビホショウ(カ",
-    "taxRounding": "floor"
+      "name": "サンプル警備保障株式会社",
+      "postalCode": "000-0000",
+      "address": "○○県○○市○○町1-2-3",
+      "tel": "000-000-0000",
+      "fax": "000-000-0001",
+      "registrationNo": "T0000000000000",
+      "bankInfo": "○○銀行 ○○支店 普通 0000000\nサンプルケイビホショウ(カ",
+      "taxRounding": "floor"
   },
   "clients": [
-    {
-      "id": "C001", "name": "東西道路管理株式会社", "honorific": "御中",
-      "billingMethod": "hourly", "ninkuMode": "perDay", "standardMinutes": 480,
-      "nightStart": "20:00", "nightEnd": "05:00",
-      "closingDay": 0, "paymentMonthOffset": 1, "paymentDay": 0,
-      "invoiceUnit": "client", "expenseMode": "include"
-    },
-    {
-      "id": "C002", "name": "みなと土木株式会社", "honorific": "御中",
-      "billingMethod": "ninku", "ninkuMode": "perDay", "standardMinutes": 480,
-      "nightStart": "20:00", "nightEnd": "05:00",
-      "closingDay": 20, "paymentMonthOffset": 1, "paymentDay": 10,
-      "invoiceUnit": "site", "expenseMode": "separate"
-    }
+    {"id": "C001", "name": "東西道路管理株式会社", "honorific": "御中", "billingMethod": "hourly", "ninkuMode": "perDay", "standardMinutes": 480, "nightStart": "20:00", "nightEnd": "06:00", "closingDay": 0, "paymentMonthOffset": 1, "paymentDay": 0, "invoiceUnit": "client", "expenseMode": "include", "dayNightRule": "band"},
+    {"id": "C002", "name": "みなと土木株式会社", "honorific": "御中", "billingMethod": "ninku", "ninkuMode": "perDay", "standardMinutes": 480, "nightStart": "20:00", "nightEnd": "06:00", "closingDay": 20, "paymentMonthOffset": 1, "paymentDay": 10, "invoiceUnit": "site", "expenseMode": "separate", "dayNightRule": "band"},
+    {"id": "C003", "name": "ひかり電設株式会社", "honorific": "御中", "billingMethod": "hourly", "ninkuMode": "perDay", "standardMinutes": 480, "dayNightRule": "shift", "nightStart": "18:00", "nightEnd": "06:00", "closingDay": 0, "paymentMonthOffset": 2, "paymentDay": 10, "invoiceUnit": "client", "expenseMode": "include"}
   ],
   "sites": [
-    { "clientId": "C001", "siteId": "S01", "coverName": "中央道\nみどり管内維持修繕業務", "spec": "規制作業一式" },
-    { "clientId": "C001", "siteId": "S02", "coverName": "さくらバイパス\n道路維持工事", "spec": "作業一式" },
-    { "clientId": "C001", "siteId": "S03", "coverName": "あおば橋\n橋梁定期点検 規制・保安業務", "spec": "規制作業一式" }
+    {"clientId": "C001", "siteId": "S01", "coverName": "中央道\nみどり管内維持修繕業務", "spec": "規制作業一式", "dayNightRule": ""},
+    {"clientId": "C001", "siteId": "S02", "coverName": "さくらバイパス\n道路維持工事", "spec": "作業一式", "dayNightRule": ""},
+    {"clientId": "C001", "siteId": "S03", "coverName": "あおば橋\n橋梁定期点検 規制・保安業務", "spec": "規制作業一式", "dayNightRule": ""},
+    {"clientId": "C003", "siteId": "S20", "coverName": "駅前通り\n電線共同溝工事", "spec": "夜間規制一式", "dayNightRule": ""}
   ],
   "rates": [
-    { "id": "r1", "clientId": "C001", "siteId": "", "jobType": "規制保安員", "dayPrice": 3200, "nightPrice": 4100, "overtimeHourly": 0 },
-    { "id": "r2", "clientId": "C001", "siteId": "", "jobType": "作業員", "dayPrice": 3200, "nightPrice": 4100, "overtimeHourly": 0 },
-    { "id": "r3", "clientId": "C002", "siteId": "", "jobType": "規制保安員", "dayPrice": 18000, "nightPrice": 22000, "overtimeHourly": 2800 }
+    {"id": "r1", "clientId": "C001", "siteId": "", "jobType": "規制保安員", "dayPrice": 3200, "nightPrice": 4100, "overtimeHourly": 0},
+    {"id": "r2", "clientId": "C001", "siteId": "", "jobType": "作業員", "dayPrice": 3200, "nightPrice": 4100, "overtimeHourly": 0},
+    {"id": "r3", "clientId": "C002", "siteId": "", "jobType": "規制保安員", "dayPrice": 18000, "nightPrice": 22000, "overtimeHourly": 2800},
+    {"id": "r4", "clientId": "C003", "siteId": "", "jobType": "規制保安員", "dayPrice": 3000, "nightPrice": 3900, "overtimeHourly": 0}
   ],
   "equipmentRates": [
-    { "id": "e1", "clientId": "C001", "siteId": "S02", "item": "車両トラック", "unitPrice": 15000 },
-    { "id": "e2", "clientId": "C001", "siteId": "S02", "item": "パッカー車", "unitPrice": 20000 },
-    { "id": "e3", "clientId": "C001", "siteId": "S02", "item": "作業道具一式", "unitPrice": 11000 },
-    { "id": "e4", "clientId": "C001", "siteId": "S03", "item": "車両トラック", "unitPrice": 9000 },
-    { "id": "e5", "clientId": "C001", "siteId": "S03", "item": "規制材一式", "unitPrice": 6000 }
+    {"id": "e1", "clientId": "C001", "siteId": "S02", "item": "車両トラック", "unitPrice": 15000},
+    {"id": "e2", "clientId": "C001", "siteId": "S02", "item": "パッカー車", "unitPrice": 20000},
+    {"id": "e3", "clientId": "C001", "siteId": "S02", "item": "作業道具一式", "unitPrice": 11000},
+    {"id": "e4", "clientId": "C001", "siteId": "S03", "item": "車両トラック", "unitPrice": 9000},
+    {"id": "e5", "clientId": "C001", "siteId": "S03", "item": "規制材一式", "unitPrice": 6000},
+    {"id": "e6", "clientId": "C003", "siteId": "", "item": "規制車", "unitPrice": 8000}
   ]
 }

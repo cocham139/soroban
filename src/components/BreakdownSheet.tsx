@@ -6,7 +6,7 @@ interface Props {
   periodEnd: string
 }
 
-/** 内訳書(A4縦)。1行 = 日 × 作業内容 × 時間。行が多ければ印刷時に自動で次のページへ続く */
+/** 内訳書(A4縦)。1行 = 日 × 工事名 × 時間。行が多ければ印刷時に自動で次のページへ続く */
 export default function BreakdownSheet({ breakdown: b, periodEnd }: Props) {
   return (
     <article className="sheet breakdown">

@@ -86,6 +86,15 @@ table.grid { border-collapse: collapse; background: #fff; width: 100%; }
 .expense-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 .expense-row input:first-child { flex: 1 1 240px; }
 
+/* 機材の手入力 */
+.equipment-editor { margin-top: 32px; }
+.equipment-form {
+  display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end;
+  background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+}
+.equipment-form label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); }
+.equipment-form .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+
 /* 請求書 */
 .invoice-inputs { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin: 16px 0; }
 .invoice-inputs textarea { width: 100%; }

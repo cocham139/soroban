@@ -92,9 +92,31 @@ describe('時間単価(日勤帯・夜勤帯)', () => {
     // 19:00〜22:00 が日勤(3h)、22:00〜04:00 が夜勤(6h)から休憩60分 → 夜勤5h
     expect(invoices[0].breakdowns[0].rows[0].quantities).toEqual({ day: 3, night: 5 })
   })
+
+  it('勤務区分に従う設定なら、夜勤の実績は時刻に関係なく全時間を夜間単価にする', () => {
+    const { invoices, issues } = build([night({ start: '17:00', end: '02:00' }), rec()], masters({ dayNightRule: 'shift' }))
+    expect(issues).toEqual([])
+    expect(invoices[0].breakdowns[0].rows.map((r) => r.quantities)).toEqual([{ day: 8 }, { night: 8 }])
+  })
+
+  it('現場ごとに昼夜の分け方を変えられる', () => {
+    const records = [night({ start: '17:00', end: '02:00' }), night({ siteId: 'S02', siteName: 'Bビル', start: '17:00', end: '02:00' })]
+    const m = masters({}, [rate()], { sites: [{ ...newSite('C001', 'S02'), dayNightRule: 'shift' }] })
+    const [a, b] = build(records, m).invoices[0].breakdowns
+    // S01 は時間帯で分ける(17:00〜20:00 が昼、20:00〜02:00 が夜から休憩60分)
+    expect(a.rows[0].quantities).toEqual({ day: 3, night: 5 })
+    expect(b.rows[0].quantities).toEqual({ night: 8 })
+  })
 })
 
 describe('人工', () => {
+  it('時間帯で分ける設定なら、長いほうの時間帯の人工単価にする', () => {
+    const m = masters({ billingMethod: 'ninku' }, [rate({ dayPrice: 18000, nightPrice: 22000 })])
+    // 勤務区分が「日勤」でも 19:00〜04:00 なら夜の時間が長いので夜勤単価
+    const { invoices } = build([rec({ start: '19:00', end: '04:00' })], m)
+    expect(invoices[0].breakdowns[0].rows[0]).toMatchObject({ quantities: { night: 1 }, amount: 22000 })
+  })
+
   it('1日1人工: 勤務区分で日勤・夜勤の人工単価、残業は時間単価', () => {
     const m = masters({ billingMethod: 'ninku' }, [rate({ dayPrice: 18000, nightPrice: 22000, overtimeHourly: 2800 })])
     const records = [rec(), rec({ workMinutes: 570, overtimeMinutes: 90, end: '19:00' }), night()]
@@ -144,9 +166,9 @@ describe('現場・職種・機材', () => {
 
   it('機材は同じ日・作業内容の行に台数 × 単価で載せる', () => {
     const equipment: EquipmentRecord[] = [
-      { id: 'M1', date: '2026-10-05', clientId: 'C001', siteId: 'S01', work: '舗装補修', item: '車両トラック', quantity: 1, slipNo: '' },
-      { id: 'M2', date: '2026-10-05', clientId: 'C001', siteId: 'S01', work: '舗装補修', item: 'パッカー車', quantity: 2, slipNo: '' },
-      { id: 'M3', date: '2026-10-06', clientId: 'C001', siteId: 'S01', work: '準備', item: '車両トラック', quantity: 1, slipNo: '' },
+      { id: 'M1', date: '2026-10-05', clientId: 'C001', siteId: 'S01', work: '舗装補修', item: '車両トラック', quantity: 1, slipNo: '', source: 'csv' },
+      { id: 'M2', date: '2026-10-05', clientId: 'C001', siteId: 'S01', work: '舗装補修', item: 'パッカー車', quantity: 2, slipNo: '', source: 'csv' },
+      { id: 'M3', date: '2026-10-06', clientId: 'C001', siteId: 'S01', work: '準備', item: '車両トラック', quantity: 1, slipNo: '', source: 'csv' },
     ]
     const m = masters({}, [rate()], {
       equipmentRates: [
@@ -162,9 +184,21 @@ describe('現場・職種・機材', () => {
     ])
   })
 
+  it('工事名が空の機材は、その日の最初の行に載せる', () => {
+    const equipment: EquipmentRecord[] = [
+      { id: 'M1', date: '2026-10-05', clientId: 'C001', siteId: 'S01', work: '', item: '車両トラック', quantity: 1, slipNo: '', source: 'manual' },
+    ]
+    const m = masters({}, [rate()], { equipmentRates: [{ ...newEquipmentRate('C001', '', '車両トラック'), unitPrice: 10000 }] })
+    const [b] = build([night(), rec()], m, equipment).invoices[0].breakdowns
+    expect(b.rows.map((r) => [r.time, r.quantities['eq:車両トラック']])).toEqual([
+      ['08:30-17:30', 1],
+      ['19:00-04:00', undefined],
+    ])
+  })
+
   it('単価が未登録の職種・機材はエラー', () => {
     const equipment: EquipmentRecord[] = [
-      { id: 'M1', date: '2026-10-05', clientId: 'C001', siteId: 'S01', work: '', item: 'クレーン', quantity: 1, slipNo: '' },
+      { id: 'M1', date: '2026-10-05', clientId: 'C001', siteId: 'S01', work: '', item: 'クレーン', quantity: 1, slipNo: '', source: 'csv' },
     ]
     const { issues } = build([rec({ jobType: '誘導員' })], masters(), equipment)
     expect(issues.map((i) => i.level)).toEqual(['error', 'error'])

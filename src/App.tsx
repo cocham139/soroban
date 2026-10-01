@@ -8,9 +8,11 @@ import InvoicesView from './components/InvoicesView'
 
 type Tab = 'import' | 'masters' | 'invoices'
 
-/** 以前の版で保存した実績には職種・作業内容がないので補う */
+/** 以前の版で保存した実績には職種・工事名がないので補う */
 const normalizeRecords = (raw: unknown): WorkRecord[] =>
   Array.isArray(raw) ? raw.map((r: WorkRecord) => ({ ...r, jobType: r.jobType ?? '', work: r.work ?? '' })) : []
+const normalizeEquipment = (raw: unknown): EquipmentRecord[] =>
+  Array.isArray(raw) ? raw.map((e: EquipmentRecord) => ({ ...e, source: e.source ?? 'csv' })) : []
 
 const TABS: [Tab, string][] = [
   ['import', '1. 実績の取り込み'],
@@ -22,7 +24,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('import')
   const [masters, setMasters] = useStoredState('soroban.masters', emptyMasters, normalizeMasters)
   const [records, setRecords] = useStoredState<WorkRecord[]>('soroban.records', () => [], normalizeRecords)
-  const [equipment, setEquipment] = useStoredState<EquipmentRecord[]>('soroban.equipment', () => [])
+  const [equipment, setEquipment] = useStoredState<EquipmentRecord[]>('soroban.equipment', () => [], normalizeEquipment)
   const [expenses, setExpenses] = useStoredState<Record<string, ExpenseLine[]>>('soroban.expenses', () => ({}))
   const [notes, setNotes] = useStoredState<Record<string, string>>('soroban.notes', () => ({}))
   const [importIssues, setImportIssues] = useState<Issue[]>([])
@@ -48,6 +50,7 @@ export default function App() {
             setEquipment={setEquipment}
             issues={importIssues}
             setIssues={setImportIssues}
+            masters={masters}
           />
         )}
         {tab === 'masters' && (
