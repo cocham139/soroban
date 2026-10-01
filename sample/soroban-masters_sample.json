@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "company": {
+    "name": "サンプル警備保障株式会社",
+    "postalCode": "000-0000",
+    "address": "○○県○○市○○町1-2-3",
+    "tel": "000-000-0000",
+    "registrationNo": "T0000000000000",
+    "bankInfo": "○○銀行 ○○支店 普通 0000000\nサンプルケイビホショウ(カ",
+    "taxRounding": "floor"
+  },
+  "clients": [
+    {
+      "id": "C001", "name": "北辰建設株式会社", "honorific": "御中",
+      "billingMethod": "ninku", "ninkuMode": "perDay", "standardMinutes": 480,
+      "closingDay": 0, "paymentMonthOffset": 1, "paymentDay": 0,
+      "invoiceUnit": "client", "expenseMode": "include"
+    },
+    {
+      "id": "C002", "name": "みなと土木株式会社", "honorific": "御中",
+      "billingMethod": "hourly", "ninkuMode": "perDay", "standardMinutes": 480,
+      "closingDay": 20, "paymentMonthOffset": 1, "paymentDay": 10,
+      "invoiceUnit": "site", "expenseMode": "separate"
+    }
+  ],
+  "rates": [
+    { "id": "r1", "clientId": "C001", "siteId": "", "shiftType": "日勤", "unitPrice": 18000, "holidayUnitPrice": 20000, "overtimeHourly": 2800, "nightAddHourly": 0 },
+    { "id": "r2", "clientId": "C001", "siteId": "S02", "shiftType": "夜勤", "unitPrice": 22000, "holidayUnitPrice": 0, "overtimeHourly": 3400, "nightAddHourly": 500 },
+    { "id": "r3", "clientId": "C002", "siteId": "", "shiftType": "日勤", "unitPrice": 2300, "holidayUnitPrice": 0, "overtimeHourly": 2900, "nightAddHourly": 0 }
+  ]
+}
