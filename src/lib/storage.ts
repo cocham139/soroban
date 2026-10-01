@@ -3,12 +3,16 @@ import { useEffect, useState } from 'react'
 /**
  * ブラウザに前回の内容を覚えておくための state。
  * 正本はJSON/CSVファイルなので、保存に失敗しても(プライベートモード等)動作は続ける。
+ * normalize を渡すと、読み込んだ値を検証・補正する(失敗したら初期値)。
  */
-export function useStoredState<T>(key: string, initial: () => T) {
+export function useStoredState<T>(key: string, initial: () => T, normalize?: (raw: unknown) => T) {
   const [value, setValue] = useState<T>(() => {
     try {
       const raw = localStorage.getItem(key)
-      if (raw) return JSON.parse(raw) as T
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw)
+        return normalize ? normalize(parsed) : (parsed as T)
+      }
     } catch {
       // 読めなければ初期値
     }
