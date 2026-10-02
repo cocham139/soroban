@@ -2,6 +2,8 @@ import { useState } from 'react'
 import type { EquipmentRecord, ExpenseLine, Issue, WorkRecord } from './types'
 import { emptyMasters, normalizeMasters } from './lib/masters'
 import { useStoredState } from './lib/storage'
+import { previousMonth } from './lib/period'
+import { DEMO_MONTH, loadDemo } from './lib/demo'
 import ImportView from './components/ImportView'
 import MastersView from './components/MastersView'
 import InvoicesView from './components/InvoicesView'
@@ -28,6 +30,28 @@ export default function App() {
   const [expenses, setExpenses] = useStoredState<Record<string, ExpenseLine[]>>('soroban.expenses', () => ({}))
   const [notes, setNotes] = useStoredState<Record<string, string>>('soroban.notes', () => ({}))
   const [importIssues, setImportIssues] = useState<Issue[]>([])
+  const [month, setMonth] = useState(() => previousMonth(new Date()))
+
+  /** 架空の1か月分(マスタ・実績・機材)に置き換えて、請求書の画面を開く */
+  function startDemo() {
+    const hasData = records.length + equipment.length + masters.clients.length > 0
+    if (
+      hasData &&
+      !confirm('今のマスタと取り込んだデータを、デモ用のデータ(架空の1か月分)に置き換えます。\n実際のマスタを入力済みの場合は、先に「マスタを書き出す」で保存してください。\n\n置き換えてよろしいですか?')
+    )
+      return
+    const demo = loadDemo()
+    setMasters(demo.masters)
+    setRecords(demo.records)
+    setEquipment(demo.equipment)
+    setExpenses({})
+    setNotes({})
+    setImportIssues([
+      { level: 'info', message: `デモデータ(架空の1か月分)を入れました: 実績 ${demo.records.length} 件 / 機材 ${demo.equipment.length} 件` },
+    ])
+    setMonth(DEMO_MONTH)
+    setTab('invoices')
+  }
 
   return (
     <div className="app">
@@ -56,6 +80,7 @@ export default function App() {
             issues={importIssues}
             setIssues={setImportIssues}
             masters={masters}
+            onDemo={startDemo}
           />
         )}
         {tab === 'masters' && (
@@ -70,6 +95,8 @@ export default function App() {
             setExpenses={setExpenses}
             notes={notes}
             setNotes={setNotes}
+            month={month}
+            setMonth={setMonth}
           />
         )}
       </main>

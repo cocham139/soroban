@@ -2,13 +2,11 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useMemo, useState } from 'react';
 import { buildInvoices } from '../lib/invoice';
 import { breakdownsToCsv, downloadText, invoicesToCsv, issueDateOf } from '../lib/export';
-import { previousMonth } from '../lib/period';
 import { yen } from '../lib/format';
 import IssueList from './IssueList';
 import CoverSheet from './CoverSheet';
 import BreakdownSheet from './BreakdownSheet';
-export default function InvoicesView({ records, equipment, masters, expenses, setExpenses, notes, setNotes }) {
-    const [month, setMonth] = useState(() => previousMonth(new Date()));
+export default function InvoicesView({ records, equipment, masters, expenses, setExpenses, notes, setNotes, month, setMonth }) {
     /** 空なら各請求書の締め日を発行日にする */
     const [issueDate, setIssueDate] = useState('');
     const [selected, setSelected] = useState(null);

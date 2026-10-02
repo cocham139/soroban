@@ -12,9 +12,11 @@ interface Props {
   issues: Issue[]
   setIssues: (i: Issue[]) => void
   masters: Masters
+  /** デモデータ(架空の1か月分)を入れる */
+  onDemo: () => void
 }
 
-export default function ImportView({ records, setRecords, equipment, setEquipment, issues, setIssues, masters }: Props) {
+export default function ImportView({ records, setRecords, equipment, setEquipment, issues, setIssues, masters, onDemo }: Props) {
   async function onFiles(files: File[]) {
     if (files.length === 0) return
     let allRecords = records
@@ -66,6 +68,7 @@ export default function ImportView({ records, setRecords, equipment, setEquipmen
         実績明細CSVと機材明細CSVを、まとめて選べます(種類は自動で判別します)。
         20日締めなど月をまたぐ元請けは、2か月分を取り込んでください。UTF-8・Shift_JIS のどちらでも読めます。
         データはこのブラウザの中だけで処理され、外部には送られません。
+        はじめての方は「デモデータを入れる」で、架空の1か月分の請求書を試せます。
       </p>
       <div className="toolbar">
         <label className="button primary">
@@ -84,6 +87,7 @@ export default function ImportView({ records, setRecords, equipment, setEquipmen
           />
         </label>
         {records.length + equipment.length > 0 && <button onClick={clear}>取り込んだデータを消す</button>}
+        <button onClick={onDemo}>デモデータを入れる(1か月分)</button>
       </div>
       <IssueList issues={issues} />
 

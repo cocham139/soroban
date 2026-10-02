@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import type { EquipmentRecord, ExpenseLine, Invoice, Masters, TaxRate, WorkRecord } from '../types'
 import { buildInvoices } from '../lib/invoice'
 import { breakdownsToCsv, downloadText, invoicesToCsv, issueDateOf } from '../lib/export'
-import { previousMonth } from '../lib/period'
 import { yen } from '../lib/format'
 import IssueList from './IssueList'
 import CoverSheet from './CoverSheet'
@@ -16,10 +15,12 @@ interface Props {
   setExpenses: (e: Record<string, ExpenseLine[]>) => void
   notes: Record<string, string>
   setNotes: (n: Record<string, string>) => void
+  /** 請求月(YYYY-MM) */
+  month: string
+  setMonth: (m: string) => void
 }
 
-export default function InvoicesView({ records, equipment, masters, expenses, setExpenses, notes, setNotes }: Props) {
-  const [month, setMonth] = useState(() => previousMonth(new Date()))
+export default function InvoicesView({ records, equipment, masters, expenses, setExpenses, notes, setNotes, month, setMonth }: Props) {
   /** 空なら各請求書の締め日を発行日にする */
   const [issueDate, setIssueDate] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
