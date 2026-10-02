@@ -2,3 +2,8 @@ node_modules
 dist
 *.local
 .DS_Store
+
+# tsc -b を誤って実行したときの生成物(型チェックは npm run typecheck を使う)
+src/**/*.js
+vite.config.js
+*.tsbuildinfo
