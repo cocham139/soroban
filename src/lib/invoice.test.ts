@@ -11,7 +11,7 @@ function rec(o: Partial<WorkRecord> = {}): WorkRecord {
     siteId: 'S01', siteName: 'Aビル', postId: 'P1', postName: '正門',
     staffId: `E${seq}`, staffName: '山田', jobType: '規制保安員', work: '舗装補修',
     shiftType: '日勤', start: '08:30', end: '17:30', breakMinutes: 60,
-    workMinutes: 480, overtimeMinutes: 0, slipNo: 'D-1', confirmed: true,
+    workMinutes: 480, overtimeMinutes: 0, slipNo: 'D-1', confirmed: true, affiliation: '',
     ...o,
   }
 }

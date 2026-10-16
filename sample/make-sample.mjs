@@ -1,7 +1,7 @@
 // サンプルの実績明細CSV・機材明細CSV(すべて架空のデータ)を作る: node sample/make-sample.mjs
 import { writeFileSync } from 'node:fs'
 
-const RECORD_HEADER = ['実績ID','勤務日','元請けID','元請け名','現場ID','現場名','ポストID','ポスト名','隊員ID','隊員名','職種','工事名','勤務区分','開始','終了','休憩分','実働分','残業分','伝票番号','状態']
+const RECORD_HEADER = ['実績ID','勤務日','元請けID','元請け名','現場ID','現場名','ポストID','ポスト名','隊員ID','隊員名','職種','工事名','勤務区分','開始','終了','休憩分','実働分','残業分','伝票番号','状態','所属']
 const EQUIPMENT_HEADER = ['機材明細ID','勤務日','元請けID','現場ID','工事名','品目','数量','伝票番号']
 
 const records = []
@@ -24,6 +24,8 @@ function work(date, client, site, task, people, start, end, opts = {}) {
       `E${String(staffNo).padStart(3, '0')}`, `隊員${staffNo}`, opts.job ?? '規制保安員', task,
       opts.shift ?? (toMin(start) >= toMin('18:00') ? '夜勤' : '日勤'), start, end, brk, span(start, end) - brk, 0,
       opts.noSlip && i === 0 ? '' : slip, opts.unconfirmed && i === 0 ? '未確定' : '確定',
+      // 隊員1〜20は自社、21〜25・26〜30は協力業者(すべて架空)
+      staffNo <= 20 ? '' : staffNo <= 25 ? 'サンプル警備' : 'みどり保安',
     ])
   }
   for (const [item, qty] of opts.equipment ?? []) {

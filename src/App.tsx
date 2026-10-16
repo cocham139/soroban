@@ -8,13 +8,14 @@ import ImportView from './components/ImportView'
 import MastersView from './components/MastersView'
 import InvoicesView from './components/InvoicesView'
 import ChangelogView from './components/ChangelogView'
+import LaborView from './components/LaborView'
 import { APP_VERSION } from './version'
 
-type Tab = 'import' | 'masters' | 'invoices' | 'changelog'
+type Tab = 'import' | 'masters' | 'invoices' | 'labor' | 'changelog'
 
 /** 以前の版で保存した実績には職種・工事名がないので補う */
 const normalizeRecords = (raw: unknown): WorkRecord[] =>
-  Array.isArray(raw) ? raw.map((r: WorkRecord) => ({ ...r, jobType: r.jobType ?? '', work: r.work ?? '' })) : []
+  Array.isArray(raw) ? raw.map((r: WorkRecord) => ({ ...r, jobType: r.jobType ?? '', work: r.work ?? '', affiliation: r.affiliation ?? '' })) : []
 const normalizeEquipment = (raw: unknown): EquipmentRecord[] =>
   Array.isArray(raw) ? raw.map((e: EquipmentRecord) => ({ ...e, source: e.source ?? 'csv' })) : []
 
@@ -22,6 +23,7 @@ const TABS: [Tab, string][] = [
   ['import', '1. 実績の取り込み'],
   ['masters', '2. マスタ'],
   ['invoices', '3. 請求書'],
+  ['labor', '4. 隊員・外注費'],
 ]
 
 export default function App() {
@@ -95,6 +97,7 @@ export default function App() {
           <MastersView masters={masters} setMasters={setMasters} records={records} equipment={equipment} />
         )}
         {tab === 'changelog' && <ChangelogView />}
+        {tab === 'labor' && <LaborView records={records} masters={masters} month={month} />}
         {tab === 'invoices' && (
           <InvoicesView
             records={records}

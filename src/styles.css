@@ -198,6 +198,9 @@ details.assign-panel { border-color: var(--color-border); }
 /* 請求書画面: 月ごと/期間で の切り替え(上部のタブと同じピル型) */
 .segmented { display: inline-flex; gap: 2px; padding: 3px; background: var(--color-surface-alt); border-radius: var(--radius-pill); }
 
+/* 隊員・外注費 */
+tr.labor-detail > td { background: var(--color-surface-alt); padding: 8px 12px; }
+
 /* 行ごとに直す: すぐ選ぶボタン・まとめて直す */
 .bulk-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; padding: 8px 12px; border-radius: var(--radius-md); background: var(--color-primary-container); }
 .quick { display: flex; gap: 4px; flex-wrap: wrap; min-width: 280px; }

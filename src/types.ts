@@ -24,6 +24,8 @@ export interface WorkRecord {
   overtimeMinutes: number
   slipNo: string
   confirmed: boolean
+  /** 所属(協力業者名。空 = 自社)。SHIRUBEの名簿の所属から出る。以前のCSVにはない */
+  affiliation: string
 }
 
 /** SHIRUBE 機材明細CSVの1行(車両・規制材など、日ごとの台数) */
@@ -217,6 +219,23 @@ export interface EquipmentRate {
   unitPrice: number
 }
 
+/**
+ * 支払単価(労務費・外注費の計算用)。所属 × 隊員 × 職種 ごと。空欄は「どれでも」、細かい指定を優先。
+ * daily = 1日いくら(日勤・夜勤は勤務区分で決める) / hourly = 1時間いくら(勤務区分の時間に掛ける)
+ */
+export interface PayRate {
+  id: string
+  /** 自社 または 協力業者名 */
+  affiliation: string
+  staffName: string
+  jobType: string
+  method: 'daily' | 'hourly'
+  dayPrice: number
+  nightPrice: number
+  /** 残業1時間あたり */
+  overtimeHourly: number
+}
+
 export interface Masters {
   version: 2
   company: Company
@@ -228,6 +247,8 @@ export interface Masters {
   quoteItems: QuoteItem[]
   /** 実績と品目の対応づけ */
   itemRules: ItemRule[]
+  /** 支払単価(労務費・外注費) */
+  payRates: PayRate[]
 }
 
 export type TaxRate = 10 | 0

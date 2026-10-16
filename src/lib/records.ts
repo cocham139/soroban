@@ -38,6 +38,7 @@ export const RECORD_COLUMNS: Column[] = [
   col('残業分', 'overtimeMinutes', false),
   col('伝票番号', 'slipNo', false),
   col('状態', 'confirmed'),
+  col('所属', 'affiliation', false),
 ]
 
 /** SHIRUBE 機材明細CSVの列 */
@@ -179,6 +180,7 @@ export function parseWorkRecords(
       overtimeMinutes,
       slipNo: get('slipNo'),
       confirmed: status === '確定',
+      affiliation: get('affiliation'),
     }
     if (!record.confirmed) unconfirmed.push(id)
     if (!record.slipNo) noSlip.push(id)

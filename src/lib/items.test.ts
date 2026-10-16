@@ -55,7 +55,7 @@ const rec = (o: Partial<WorkRecord> = {}): WorkRecord => ({
   id: `R${++seq}`, date: '2026-10-05', clientId: 'C1', clientName: '○○開発', siteId: 'S1', siteName: '橋梁点検',
   postId: '', postName: '', staffId: '', staffName: '', jobType: '規制保安員', work: '橋梁定期点検',
   shiftType: '日勤', start: '08:30', end: '17:30', breakMinutes: 60, workMinutes: 480, overtimeMinutes: 0,
-  slipNo: 'D-1', confirmed: true, ...o,
+  slipNo: 'D-1', confirmed: true, affiliation: '', ...o,
 })
 const item = (id: string, o: Partial<QuoteItem>) => newQuoteItem('C1', '', { id, ...o })
 

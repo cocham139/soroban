@@ -1,4 +1,4 @@
-import type { Client, EquipmentRate, EquipmentRecord, ItemBasis, ItemRule, Masters, QuoteItem, Rate, Site, WorkRecord } from '../types'
+import type { Client, EquipmentRate, EquipmentRecord, ItemBasis, ItemRule, Masters, PayRate, QuoteItem, Rate, Site, WorkRecord } from '../types'
 
 export function emptyMasters(): Masters {
   return {
@@ -19,6 +19,21 @@ export function emptyMasters(): Masters {
     equipmentRates: [],
     quoteItems: [],
     itemRules: [],
+    payRates: [],
+  }
+}
+
+export function newPayRate(o: Partial<PayRate> = {}): PayRate {
+  return {
+    id: crypto.randomUUID(),
+    affiliation: '自社',
+    staffName: '',
+    jobType: '',
+    method: 'daily',
+    dayPrice: 0,
+    nightPrice: 0,
+    overtimeHourly: 0,
+    ...o,
   }
 }
 
@@ -178,6 +193,7 @@ export function normalizeMasters(data: unknown): Masters {
     })),
     quoteItems: (Array.isArray(d.quoteItems) ? d.quoteItems : []).map((q) => newQuoteItem(q.clientId, q.siteId ?? '', q)),
     itemRules: (Array.isArray(d.itemRules) ? d.itemRules : []).map((r) => newItemRule(r)),
+    payRates: (Array.isArray(d.payRates) ? d.payRates : []).map((r) => newPayRate(r)),
   }
 }
 

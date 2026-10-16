@@ -15,6 +15,7 @@ import { downloadText } from '../lib/export'
 import { todayString } from '../lib/period'
 import { DEFAULT_SPEC } from '../lib/invoice'
 import QuoteItemsSection from './QuoteItemsSection'
+import PayRatesSection from './PayRatesSection'
 
 interface Props {
   masters: Masters
@@ -426,6 +427,7 @@ export default function MastersView({ masters, setMasters, records, equipment }:
       <button onClick={() => append('equipmentRates', [newEquipmentRate(masters.clients[0]?.id ?? '', '', '')])}>
         機材の単価を追加
       </button>
+      <PayRatesSection masters={masters} setMasters={setMasters} records={records} />
     </section>
   )
 }
