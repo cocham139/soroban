@@ -127,7 +127,7 @@ export function missingEquipmentRates(equipment: EquipmentRecord[], masters: Mas
 export function normalizeMasters(data: unknown): Masters {
   const d = data as Omit<Partial<Masters>, 'version'> & { version?: number }
   if (!d || (d.version !== 1 && d.version !== 2) || !Array.isArray(d.clients) || !Array.isArray(d.rates)) {
-    throw new Error('SOROBANのマスタファイルではありません')
+    throw new Error('SOLOBAN(旧SOROBAN)のマスタファイルではありません')
   }
   const base = emptyMasters()
   let rates: Rate[]

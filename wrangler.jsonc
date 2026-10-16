@@ -1,8 +1,8 @@
 {
-  // SOROBANの公開設定(Cloudflare Workers の静的アセット配信。SHIRUBEと同じ方式・無料枠)。
+  // SOLOBAN(旧SOROBAN)の公開設定(Cloudflare Workers の静的アセット配信。SHIRUBEと同じ方式・無料枠)。
   // 公開は `npm run deploy`(型チェック → ビルド → dist を公開)。
   // データはブラウザの中だけで処理するので、公開先に請求データは残らない。
-  "name": "soroban",
+  "name": "soloban",
   "compatibility_date": "2026-10-01",
   "preview_urls": false,
   "assets": {

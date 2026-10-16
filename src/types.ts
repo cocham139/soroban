@@ -36,7 +36,7 @@ export interface EquipmentRecord {
   item: string
   quantity: number
   slipNo: string
-  /** csv = 機材明細CSVから / manual = SOROBANで手入力 */
+  /** csv = 機材明細CSVから / manual = SOLOBANで手入力 */
   source: 'csv' | 'manual'
 }
 

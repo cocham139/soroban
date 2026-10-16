@@ -118,7 +118,7 @@ export default function MastersView({ masters, setMasters, records, equipment }:
         <button
           className="primary"
           onClick={() =>
-            downloadText(`soroban-masters_${todayString(new Date())}.json`, JSON.stringify(masters, null, 2), 'application/json')
+            downloadText(`soloban-masters_${todayString(new Date())}.json`, JSON.stringify(masters, null, 2), 'application/json')
           }
         >
           マスタを書き出す

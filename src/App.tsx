@@ -60,8 +60,8 @@ export default function App() {
       <header className="app-header no-print">
         <h1>
           <button className="app-title-link" onClick={() => setTab('import')} title="最初の画面に戻る">
-            <img className="app-logo-mark" src="./soroban-64.png" alt="" />
-            SOROBAN
+            <img className="app-logo-mark" src="./soloban-64.png" alt="" />
+            SOLOBAN
           </button>
           <span className="app-header-tagline">請求書</span>
           <button className="version-badge" onClick={() => setTab('changelog')} title="更新履歴を見る">

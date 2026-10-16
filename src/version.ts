@@ -10,6 +10,15 @@ export interface ChangelogEntry {
 // 上げた桁より下の桁は 0 に戻す。迷ったら小さい方(z)。
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.09.0',
+    date: '2026-10-16',
+    title: 'アプリ名を「SOLOBAN」に',
+    changes: [
+      'アプリ名をSOROBANから「SOLOBAN」に変え、ロゴを新しくしました。人為的なミスを減らし、経理の事務を一人でも回せるようにする、という思いを込めています。',
+      '公開先のアドレスが新しくなりました( https://soloban.cocham139.workers.dev )。マスタのファイルは、これまで書き出したものをそのまま読み込めます。',
+    ],
+  },
+  {
     version: '0.08.0',
     date: '2026-10-16',
     title: '単位の呼び方を自由に、1日ごとの数え方、版の表示',

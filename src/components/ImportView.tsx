@@ -64,14 +64,14 @@ export default function ImportView({ records, setRecords, equipment, setEquipmen
   return (
     <section>
       <div className="howto">
-        <img src="./soroban-180.png" alt="SOROBAN" />
+        <img src="./soloban-180.png" alt="SOLOBAN" />
         <div>
-          <h3>SOROBANの使い方</h3>
+          <h3>SOLOBANの使い方</h3>
           <ol>
             <li>
               はじめに「2. マスタ」で、請求書の書式(自社情報・振込先・元請け・表紙の現場名と仕様)と単価を登録しておく
             </li>
-            <li>SHIRUBEで、業者ごとに実績明細CSVを作成する(管理設定 →「経理(SOROBAN)で請求書を作る」)</li>
+            <li>SHIRUBEで、業者ごとに実績明細CSVを作成する(管理設定 →「経理(SOLOBAN)で請求書を作る」)</li>
             <li>このページでCSVを読み込み、「3. 請求書」で請求月を選んで確認・印刷する</li>
           </ol>
         </div>
