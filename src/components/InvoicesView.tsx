@@ -161,7 +161,17 @@ export default function InvoicesView({
               .flatMap((b) =>
                 b.rows
                   .filter((r) => r.key && r.item)
-                  .map((r) => ({ key: r.key!, date: r.date, time: r.time, work: r.work, itemName: r.item!.name, clientId: current.client.id, siteId: b.siteId })),
+                  .map((r) => ({
+                    key: r.key!,
+                    date: r.date,
+                    time: r.time,
+                    work: r.work,
+                    slipNo: r.slipNo ?? '',
+                    itemId: r.item!.id ?? '',
+                    itemName: r.item!.name,
+                    clientId: current.client.id,
+                    siteId: b.siteId,
+                  })),
               )}
             masters={masters}
             setMasters={setMasters}

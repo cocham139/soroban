@@ -267,7 +267,7 @@ function itemBreakdown(
   unassigned: Map<string, Unassigned>,
 ): { breakdown: Breakdown; rows: Map<string, RowAcc>; keep: string[] } {
   const byId = new Map(itemsFor(masters.quoteItems, client.id, siteId).map((q) => [q.id, q]))
-  interface Group { date: string; work: string; time: string; people: number; dayMin: number; nightMin: number; night: boolean }
+  interface Group { date: string; work: string; time: string; people: number; dayMin: number; nightMin: number; night: boolean; slips: Set<string> }
   const groups = new Map<string, Group>()
   for (const r of records) {
     const time = `${r.start}-${r.end}`
@@ -275,12 +275,13 @@ function itemBreakdown(
     const split = rule === 'band' ? splitDayNight(r.start, r.end, r.breakMinutes, client.nightStart, client.nightEnd) : null
     let g = groups.get(key)
     if (!g) {
-      g = { date: r.date, work: r.work, time, people: 0, dayMin: 0, nightMin: 0, night: split ? split.night > split.day : isNight(r.shiftType) }
+      g = { date: r.date, work: r.work, time, people: 0, dayMin: 0, nightMin: 0, night: split ? split.night > split.day : isNight(r.shiftType), slips: new Set() }
       groups.set(key, g)
     }
     // 実働分を正とし、計算上の日勤分を超えた分を夜とする(時間単価と同じ考え方)
     const day = split ? Math.min(split.day, r.workMinutes) : isNight(r.shiftType) ? 0 : r.workMinutes
     g.people++
+    if (r.slipNo) g.slips.add(r.slipNo)
     g.dayMin += day
     g.nightMin += r.workMinutes - day
   }
@@ -318,7 +319,8 @@ function itemBreakdown(
       const acc = newAcc(g.date, g.work, g.time)
       const q = Math.round(quantity * 100) / 100
       acc.row.key = okey
-      acc.row.item = { name: item.name, unit: item.unit, quantity: q, unitPrice: item.unitPrice, needsQuote: item.needsQuote }
+      acc.row.slipNo = [...g.slips].join('、')
+      acc.row.item = { id: item.id, name: item.name, unit: item.unit, quantity: q, unitPrice: item.unitPrice, needsQuote: item.needsQuote }
       acc.row.amount = Math.round(quantity * item.unitPrice)
       rows.set(`${gk}\u0000${item.id}`, acc)
     }

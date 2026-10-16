@@ -195,6 +195,13 @@ details.assign-panel { border-color: var(--color-border); }
 .draft-badge { margin-left: 8px; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: var(--radius-pill); background: var(--color-warning-container); color: var(--color-on-warning-container); }
 .draft-mark { position: absolute; left: 0; top: 0; margin: 0; font-size: 11pt; font-weight: 700; color: #b05a00; border: 1.5px solid #b05a00; padding: 1px 8px; }
 
+/* 行ごとに直す: すぐ選ぶボタン・まとめて直す */
+.bulk-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; padding: 8px 12px; border-radius: var(--radius-md); background: var(--color-primary-container); }
+.quick { display: flex; gap: 4px; flex-wrap: wrap; min-width: 280px; }
+.quick button { padding: 3px 10px; font-size: 12px; }
+.quick .chip-on, .quick .chip-on:disabled { background: var(--color-primary); color: #fff; border-color: var(--color-primary); opacity: 1; }
+tr.row-changed td { background: var(--color-warning-container); }
+
 .expenses { margin: 16px 0; }
 .expense-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 .expense-row input:first-child { flex: 1 1 240px; }

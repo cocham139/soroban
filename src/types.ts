@@ -258,7 +258,9 @@ export interface BreakdownRow {
   work: string
   time: string
   /** 品目の明細形式の行(見積書で請求するとき): 品目名・単位・数量・単価 */
-  item?: { name: string; unit: string; quantity: number; unitPrice: number; needsQuote: boolean }
+  item?: { id?: string; name: string; unit: string; quantity: number; unitPrice: number; needsQuote: boolean }
+  /** この行の伝票番号(紙の伝票と見比べる用。複数あれば「、」区切り) */
+  slipNo?: string
   /** 行ごとの品目の指定に使うキー(見積書で請求するとき) */
   key?: string
   /** 列キー → 数量 */
