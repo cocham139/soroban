@@ -1,4 +1,4 @@
-import type { Client, EquipmentRate, EquipmentRecord, Masters, Rate, Site, WorkRecord } from '../types'
+import type { Client, EquipmentRate, EquipmentRecord, ItemBasis, ItemRule, Masters, QuoteItem, Rate, Site, WorkRecord } from '../types'
 
 export function emptyMasters(): Masters {
   return {
@@ -17,7 +17,28 @@ export function emptyMasters(): Masters {
     sites: [],
     rates: [],
     equipmentRates: [],
+    quoteItems: [],
+    itemRules: [],
   }
+}
+
+export function newQuoteItem(clientId: string, siteId: string, o: Partial<QuoteItem> = {}): QuoteItem {
+  return {
+    id: crypto.randomUUID(),
+    clientId,
+    siteId,
+    name: '',
+    unit: '日',
+    unitPrice: 0,
+    basis: 'row' as ItemBasis,
+    quantity: 0,
+    needsQuote: false,
+    ...o,
+  }
+}
+
+export function newItemRule(o: Partial<ItemRule> = {}): ItemRule {
+  return { id: crypto.randomUUID(), clientId: '', siteId: '', jobType: '', work: '', dayItemId: '', nightItemId: '', ...o }
 }
 
 export function newClient(id: string, name: string): Client {
@@ -155,6 +176,8 @@ export function normalizeMasters(data: unknown): Masters {
       ...newEquipmentRate(e.clientId, e.siteId ?? '', e.item),
       ...e,
     })),
+    quoteItems: (Array.isArray(d.quoteItems) ? d.quoteItems : []).map((q) => newQuoteItem(q.clientId, q.siteId ?? '', q)),
+    itemRules: (Array.isArray(d.itemRules) ? d.itemRules : []).map((r) => newItemRule(r)),
   }
 }
 

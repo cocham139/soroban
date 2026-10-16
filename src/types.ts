@@ -154,6 +154,60 @@ export interface Rate {
   monthlyUnit: string
 }
 
+/**
+ * 見積書の品目の数え方
+ * personHours = 延べ時間(人 × 時間) / persons = 人数(人・日) / row = 1作業ごとに1 / day = 1日ごとに1 / month = 請求書ごとに1
+ */
+export type ItemBasis = 'personHours' | 'persons' | 'row' | 'day' | 'month'
+
+/** 見積書の品目(元請け × 現場 ごとの単価表)。見積書がある元請け・現場は、人の単価の代わりにこれで請求する */
+export interface QuoteItem {
+  id: string
+  clientId: string
+  /** 空文字 = その元請けの全現場 */
+  siteId: string
+  /** 見積書の品目名(例: 一般道 片側交互通行規制(昼間)×Ⅱ うち切替1回) */
+  name: string
+  /** 単位(自由入力。h・人・日・回・台・月 など) */
+  unit: string
+  unitPrice: number
+  basis: ItemBasis
+  /** 見積書の数量(0 = なし)。使った量との比較に使う */
+  quantity: number
+  /** 見積書にない品目として請求の途中で足したもの(追加の見積書が必要) */
+  needsQuote: boolean
+}
+
+/** 対応づけ: SHIRUBEの実績(元請け × 現場 × 職種 × 作業名)を見積書の品目に結びつける。空文字は「どれでも」 */
+export interface ItemRule {
+  id: string
+  clientId: string
+  siteId: string
+  jobType: string
+  work: string
+  /** 昼の品目(夜の品目がなければ夜もこれ) */
+  dayItemId: string
+  /** 夜の品目(空 = 昼の品目と同じ) */
+  nightItemId: string
+}
+
+/** 内訳書の行ごとに指定した品目(行のキー → 品目ID)。対応づけより優先する */
+export type ItemOverrides = Record<string, string>
+
+/** 品目の割り当て待ち(対応づけがない実績のまとまり) */
+export interface Unassigned {
+  clientId: string
+  clientName: string
+  siteId: string
+  siteName: string
+  jobType: string
+  work: string
+  /** 夜の行を含むか */
+  hasNight: boolean
+  /** 該当する内訳書の行数 */
+  rows: number
+}
+
 /** 機材・車両の単価(元請け × 現場 × 品目、1日1台あたり) */
 export interface EquipmentRate {
   id: string
@@ -170,6 +224,10 @@ export interface Masters {
   sites: Site[]
   rates: Rate[]
   equipmentRates: EquipmentRate[]
+  /** 見積書の品目 */
+  quoteItems: QuoteItem[]
+  /** 実績と品目の対応づけ */
+  itemRules: ItemRule[]
 }
 
 export type TaxRate = 10 | 0
@@ -199,6 +257,10 @@ export interface BreakdownRow {
   date: string
   work: string
   time: string
+  /** 品目の明細形式の行(見積書で請求するとき): 品目名・単位・数量・単価 */
+  item?: { name: string; unit: string; quantity: number; unitPrice: number; needsQuote: boolean }
+  /** 行ごとの品目の指定に使うキー(見積書で請求するとき) */
+  key?: string
   /** 列キー → 数量 */
   quantities: Record<string, number>
   /** 列キー → 金額 */
@@ -208,6 +270,8 @@ export interface BreakdownRow {
 
 /** 内訳書1枚分(現場 × 職種) */
 export interface Breakdown {
+  /** columns = 日勤・夜勤などの列に数量を並べる / lines = 1行に1品目(見積書の品目で請求するとき) */
+  layout?: 'columns' | 'lines'
   siteId: string
   title: string
   columns: BreakdownColumn[]
@@ -252,6 +316,8 @@ export interface Invoice {
   tax: number
   total: number
   recordCount: number
+  /** 品目の割り当て待ちがある(請求書は下書き) */
+  unassigned: Unassigned[]
 }
 
 export interface Issue {

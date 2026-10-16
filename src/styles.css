@@ -181,6 +181,20 @@ main > section > table.grid, .expenses table.grid { border: 1px solid var(--colo
 .rate-extra label { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; font-size: 12px; color: var(--color-text-muted); }
 .rate-extra label .sub { display: inline; margin: 0; }
 
+/* 見積書・品目の割り当て */
+.paste-box { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 12px; }
+.paste-box textarea { width: 100%; font-family: inherit; }
+.paste-preview { margin-top: 8px; }
+.item-name { min-width: 320px; }
+.item-select { max-width: 420px; }
+.item-new { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.assign-panel { margin: 12px 0; background: var(--color-surface); border: 1px solid var(--color-warning); border-radius: var(--radius-md); padding: 12px 16px; }
+details.assign-panel { border-color: var(--color-border); }
+.assign-panel h3 { margin-top: 0; }
+.assign-panel summary { cursor: pointer; font-weight: 700; }
+.draft-badge { margin-left: 8px; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: var(--radius-pill); background: var(--color-warning-container); color: var(--color-on-warning-container); }
+.draft-mark { position: absolute; left: 0; top: 0; margin: 0; font-size: 11pt; font-weight: 700; color: #b05a00; border: 1.5px solid #b05a00; padding: 1px 8px; }
+
 .expenses { margin: 16px 0; }
 .expense-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 .expense-row input:first-child { flex: 1 1 240px; }

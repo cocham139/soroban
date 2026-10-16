@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { EquipmentRecord, ExpenseLine, Invoice, Masters, TaxRate, WorkRecord } from '../types'
+import type { EquipmentRecord, ExpenseLine, Invoice, ItemOverrides, Masters, TaxRate, Unassigned, WorkRecord } from '../types'
+import { RowOverridePanel, UnassignedPanel } from './AssignPanel'
 import { buildInvoices, expenseAmount } from '../lib/invoice'
 import { breakdownsToCsv, downloadText, invoicesToCsv, issueDateOf } from '../lib/export'
 import { yen } from '../lib/format'
@@ -8,6 +9,9 @@ import CoverSheet from './CoverSheet'
 import BreakdownSheet from './BreakdownSheet'
 
 interface Props {
+  setMasters: (m: Masters) => void
+  overrides: ItemOverrides
+  setOverrides: (o: ItemOverrides) => void
   records: WorkRecord[]
   equipment: EquipmentRecord[]
   masters: Masters
@@ -20,16 +24,28 @@ interface Props {
   setMonth: (m: string) => void
 }
 
-export default function InvoicesView({ records, equipment, masters, expenses, setExpenses, notes, setNotes, month, setMonth }: Props) {
+export default function InvoicesView({
+  records, equipment, masters, setMasters, expenses, setExpenses, notes, setNotes, month, setMonth, overrides, setOverrides,
+}: Props) {
   /** 空なら各請求書の締め日を発行日にする */
   const [issueDate, setIssueDate] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [printAll, setPrintAll] = useState(false)
 
   const { invoices, issues } = useMemo(
-    () => buildInvoices(records, equipment, masters, month, expenses),
-    [records, equipment, masters, month, expenses],
+    () => buildInvoices(records, equipment, masters, month, expenses, overrides),
+    [records, equipment, masters, month, expenses, overrides],
   )
+  // 割り当て待ちは、請求書をまたいで同じ組み合わせを1行にまとめる
+  const unassigned = useMemo(() => {
+    const m = new Map<string, Unassigned>()
+    for (const u of invoices.flatMap((i) => i.unassigned)) {
+      const k = [u.clientId, u.siteId, u.jobType, u.work].join('|')
+      const cur = m.get(k)
+      m.set(k, cur ? { ...cur, rows: cur.rows + u.rows, hasNight: cur.hasNight || u.hasNight } : u)
+    }
+    return [...m.values()]
+  }, [invoices])
   const current = invoices.find((i) => i.number === selected) ?? invoices[0]
 
   useEffect(() => {
@@ -102,6 +118,7 @@ export default function InvoicesView({ records, equipment, masters, expenses, se
         </p>
         {companyMissing && <p className="warn-text">マスタの自社情報(社名・登録番号)が未入力です。</p>}
         <IssueList issues={issues} />
+        <UnassignedPanel list={unassigned} masters={masters} setMasters={setMasters} />
 
         {invoices.length === 0 ? (
           <p>この請求月に請求できる実績がありません。実績の取り込みとマスタの登録を確認してください。</p>
@@ -117,7 +134,10 @@ export default function InvoicesView({ records, equipment, masters, expenses, se
                   className={inv.number === current?.number ? 'selected clickable' : 'clickable'}
                   onClick={() => setSelected(inv.number)}
                 >
-                  <td>{inv.number}</td>
+                  <td className="nowrap">
+                    {inv.number}
+                    {inv.unassigned.length > 0 && <span className="draft-badge">下書き</span>}
+                  </td>
                   <td>{inv.client.name}</td>
                   <td>{inv.siteName ?? (inv.isExpenseOnly ? '(経費)' : `${inv.coverLines.filter((l) => l.siteId).length} 現場`)}</td>
                   <td>{inv.period.from} 〜 {inv.period.to}</td>
@@ -134,6 +154,21 @@ export default function InvoicesView({ records, equipment, masters, expenses, se
           </table>
         )}
 
+        {current && (
+          <RowOverridePanel
+            rows={current.breakdowns
+              .filter((b) => b.layout === 'lines')
+              .flatMap((b) =>
+                b.rows
+                  .filter((r) => r.key && r.item)
+                  .map((r) => ({ key: r.key!, date: r.date, time: r.time, work: r.work, itemName: r.item!.name, clientId: current.client.id, siteId: b.siteId })),
+              )}
+            masters={masters}
+            setMasters={setMasters}
+            overrides={overrides}
+            setOverrides={setOverrides}
+          />
+        )}
         {current && (
           <div className="invoice-inputs">
             <div>

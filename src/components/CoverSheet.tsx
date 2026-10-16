@@ -16,6 +16,7 @@ export default function CoverSheet({ invoice, company, issueDate, note }: Props)
     <article className="sheet cover">
       <header className="cover-head">
         <h2>{invoice.isExpenseOnly ? '請 求 書(経費)' : '請　求　書'}</h2>
+        {invoice.unassigned.length > 0 && <p className="draft-mark">下書き(品目の割り当て待ちがあります)</p>}
         <dl className="cover-meta">
           <dt>発行日</dt><dd>{jpDate(issueDate)}</dd>
           <dt>請求書番号</dt><dd>{invoice.number}</dd>

@@ -67,6 +67,10 @@ export function breakdownsToCsv(invoices: Invoice[]): string {
   for (const inv of invoices) {
     for (const b of inv.breakdowns) {
       for (const r of b.rows) {
+        if (r.item) {
+          rows.push([inv.number, b.siteId, b.title, r.date, r.work, r.time, r.item.name, r.item.quantity, r.item.unit, r.item.unitPrice, r.amount])
+          continue
+        }
         for (const c of b.columns) {
           const q = r.quantities[c.key]
           if (!q) continue

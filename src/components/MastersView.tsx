@@ -14,6 +14,7 @@ import {
 import { downloadText } from '../lib/export'
 import { todayString } from '../lib/period'
 import { DEFAULT_SPEC } from '../lib/invoice'
+import QuoteItemsSection from './QuoteItemsSection'
 
 interface Props {
   masters: Masters
@@ -273,6 +274,8 @@ export default function MastersView({ masters, setMasters, records, equipment }:
         ))}
       </Table>
       <button onClick={() => append('sites', [newSite(masters.clients[0]?.id ?? '', '')])}>現場を追加</button>
+
+      <QuoteItemsSection masters={masters} setMasters={setMasters} records={records} />
 
       <h3>人の単価</h3>
       <p className="hint">

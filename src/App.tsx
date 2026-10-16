@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { EquipmentRecord, ExpenseLine, Issue, WorkRecord } from './types'
+import type { EquipmentRecord, ExpenseLine, Issue, ItemOverrides, WorkRecord } from './types'
 import { emptyMasters, normalizeMasters } from './lib/masters'
 import { useStoredState } from './lib/storage'
 import { previousMonth } from './lib/period'
@@ -31,6 +31,7 @@ export default function App() {
   const [equipment, setEquipment] = useStoredState<EquipmentRecord[]>('soroban.equipment', () => [], normalizeEquipment)
   const [expenses, setExpenses] = useStoredState<Record<string, ExpenseLine[]>>('soroban.expenses', () => ({}))
   const [notes, setNotes] = useStoredState<Record<string, string>>('soroban.notes', () => ({}))
+  const [overrides, setOverrides] = useStoredState<ItemOverrides>('soroban.itemOverrides', () => ({}))
   const [importIssues, setImportIssues] = useState<Issue[]>([])
   const [month, setMonth] = useState(() => previousMonth(new Date()))
 
@@ -48,6 +49,7 @@ export default function App() {
     setEquipment(demo.equipment)
     setExpenses({})
     setNotes({})
+    setOverrides({})
     setImportIssues([
       { level: 'info', message: `デモデータ(架空の1か月分)を入れました: 実績 ${demo.records.length} 件 / 機材 ${demo.equipment.length} 件` },
     ])
@@ -104,6 +106,9 @@ export default function App() {
             setNotes={setNotes}
             month={month}
             setMonth={setMonth}
+            setMasters={setMasters}
+            overrides={overrides}
+            setOverrides={setOverrides}
           />
         )}
       </main>

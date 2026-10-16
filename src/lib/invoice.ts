@@ -9,7 +9,10 @@ import type {
   ExpenseLine,
   Invoice,
   Issue,
+  ItemOverrides,
   Masters,
+  QuoteItem,
+  Unassigned,
   Rate,
   RoundingMode,
   TaxRate,
@@ -18,6 +21,7 @@ import type {
 } from '../types'
 import { billingPeriod, dueDate } from './period'
 import { formatHours, splitDayNight } from './time'
+import { findItemRule, itemsFor, overrideKey } from './items'
 
 export const CONSUMPTION_TAX_RATE: TaxRate = 10
 export const DEFAULT_SPEC = '作業一式'
@@ -246,12 +250,117 @@ function personBreakdown(
   }
 }
 
+/**
+ * 見積書の品目で請求する内訳書(明細形式: 1行に1品目)。
+ * 品目は「行ごとの指定」→「対応づけ」の順に決める。どちらもない実績は割り当て待ちに回し、請求書には載せない。
+ */
+function itemBreakdown(
+  records: WorkRecord[],
+  client: Client,
+  siteId: string,
+  siteName: string,
+  jobType: string,
+  rule: DayNightRule,
+  title: string,
+  masters: Masters,
+  overrides: ItemOverrides,
+  unassigned: Map<string, Unassigned>,
+): { breakdown: Breakdown; rows: Map<string, RowAcc>; keep: string[] } {
+  const byId = new Map(itemsFor(masters.quoteItems, client.id, siteId).map((q) => [q.id, q]))
+  interface Group { date: string; work: string; time: string; people: number; dayMin: number; nightMin: number; night: boolean }
+  const groups = new Map<string, Group>()
+  for (const r of records) {
+    const time = `${r.start}-${r.end}`
+    const key = rowKey(r.date, r.work, time)
+    const split = rule === 'band' ? splitDayNight(r.start, r.end, r.breakMinutes, client.nightStart, client.nightEnd) : null
+    let g = groups.get(key)
+    if (!g) {
+      g = { date: r.date, work: r.work, time, people: 0, dayMin: 0, nightMin: 0, night: split ? split.night > split.day : isNight(r.shiftType) }
+      groups.set(key, g)
+    }
+    // 実働分を正とし、計算上の日勤分を超えた分を夜とする(時間単価と同じ考え方)
+    const day = split ? Math.min(split.day, r.workMinutes) : isNight(r.shiftType) ? 0 : r.workMinutes
+    g.people++
+    g.dayMin += day
+    g.nightMin += r.workMinutes - day
+  }
+  // 1日ごとに数える品目は、その日の最初の作業にだけ1を載せる
+  const firstOfDay = new Map<string, Group>()
+  for (const g of groups.values()) {
+    const cur = firstOfDay.get(g.date)
+    if (!cur || g.time < cur.time) firstOfDay.set(g.date, g)
+  }
+
+  const rows = new Map<string, RowAcc>()
+  const monthUsed = new Set<string>()
+  for (const [gk, g] of groups) {
+    const okey = overrideKey({ clientId: client.id, siteId, jobType, date: g.date, work: g.work, time: g.time })
+    const forced = overrides[okey] ? byId.get(overrides[okey]) : undefined
+    let dayItem: QuoteItem | undefined
+    let nightItem: QuoteItem | undefined
+    if (forced) {
+      dayItem = nightItem = forced
+    } else {
+      const r = findItemRule(masters.itemRules, client.id, siteId, jobType, g.work)
+      dayItem = r ? byId.get(r.dayItemId) : undefined
+      nightItem = (r?.nightItemId ? byId.get(r.nightItemId) : undefined) ?? dayItem
+    }
+    if (!dayItem || !nightItem) {
+      const uk = [client.id, siteId, jobType, g.work].join('|')
+      const u = unassigned.get(uk) ?? { clientId: client.id, clientName: client.name, siteId, siteName, jobType, work: g.work, hasNight: false, rows: 0 }
+      u.rows++
+      u.hasNight ||= g.night
+      unassigned.set(uk, u)
+      continue
+    }
+    const add = (item: QuoteItem, quantity: number) => {
+      if (!(quantity > 0)) return
+      const acc = newAcc(g.date, g.work, g.time)
+      const q = Math.round(quantity * 100) / 100
+      acc.row.key = okey
+      acc.row.item = { name: item.name, unit: item.unit, quantity: q, unitPrice: item.unitPrice, needsQuote: item.needsQuote }
+      acc.row.amount = Math.round(quantity * item.unitPrice)
+      rows.set(`${gk}\u0000${item.id}`, acc)
+    }
+    if (dayItem !== nightItem && dayItem.basis === 'personHours') {
+      // 昼の時間と夜の時間を別の品目に(例: 作業員 / 作業員(N))
+      add(dayItem, g.dayMin / 60)
+      add(nightItem, g.nightMin / 60)
+      continue
+    }
+    const item = g.night ? nightItem : dayItem
+    switch (item.basis) {
+      case 'personHours':
+        add(item, (g.dayMin + g.nightMin) / 60)
+        break
+      case 'persons':
+        add(item, g.people)
+        break
+      case 'row':
+        add(item, 1)
+        break
+      case 'day':
+        if (firstOfDay.get(g.date) === g) add(item, 1)
+        break
+      case 'month':
+        if (!monthUsed.has(item.id)) {
+          monthUsed.add(item.id)
+          add(item, 1)
+        }
+        break
+    }
+  }
+  return { breakdown: { siteId: '', title, columns: [], rows: [], totals: {}, amount: 0, layout: 'lines' }, rows, keep: [] }
+}
+
 function finishBreakdown(b: Breakdown, rows: Map<string, RowAcc>, keepColumns: string[]): Breakdown {
   const sorted = [...rows.values()]
     .sort(
       (x, y) =>
         Number(!!x.tail) - Number(!!y.tail) ||
         x.row.date.localeCompare(y.row.date) ||
+        // 時間のない行(機材だけの行)は、その日の最後に
+        Number(!x.row.time) - Number(!y.row.time) ||
         x.row.time.localeCompare(y.row.time) ||
         x.row.work.localeCompare(y.row.work, 'ja'),
     )
@@ -277,6 +386,8 @@ function buildBody(
   client: Client,
   masters: Masters,
   issues: Issue[],
+  overrides: ItemOverrides,
+  unassigned: Map<string, Unassigned>,
 ): { breakdowns: Breakdown[]; coverLines: CoverLine[] } {
   const siteIds = [...new Set([...records.map((r) => r.siteId), ...equipment.map((e) => e.siteId)])].sort()
   const breakdowns: Breakdown[] = []
@@ -298,6 +409,13 @@ function buildBody(
     const parts: { breakdown: Breakdown; rows: Map<string, RowAcc>; keep: string[] }[] = []
     jobs.forEach(([jobType, list], i) => {
       const title = i === 0 || !jobType ? baseTitle : `${baseTitle}(${jobType})`
+      const rule = site?.dayNightRule || client.dayNightRule
+      if (itemsFor(masters.quoteItems, client.id, siteId).length > 0) {
+        // 見積書がある元請け・現場は、見積書の品目で請求する
+        const p = itemBreakdown(list, client, siteId, siteName, jobType, rule, title, masters, overrides, unassigned)
+        parts.push({ ...p, breakdown: { ...p.breakdown, siteId } })
+        return
+      }
       const rate = findRate(masters.rates, client.id, siteId, jobType)
       if (!rate) {
         issues.push({
@@ -324,6 +442,14 @@ function buildBody(
       for (const e of siteEquipment) {
         const price = findBySite(masters.equipmentRates, client.id, siteId, (x) => x.item === e.item)
         if (!price || e.quantity === 0) continue
+        if (target.breakdown.layout === 'lines') {
+          // 明細形式の内訳書では、機材も1行に1品目で載せる
+          const acc = newAcc(e.date, e.work, '')
+          acc.row.item = { name: e.item, unit: '台', quantity: e.quantity, unitPrice: price.unitPrice, needsQuote: false }
+          acc.row.amount = e.quantity * price.unitPrice
+          target.rows.set(`eq\u0000${e.id}`, acc)
+          continue
+        }
         const key = `eq:${e.item}`
         if (!itemColumns.has(key)) itemColumns.set(key, { key, label: e.item, unit: '台', unitPrice: price.unitPrice })
         const acc =
@@ -423,6 +549,7 @@ export function buildInvoices(
   masters: Masters,
   month: string,
   expenses: Record<string, ExpenseLine[]>,
+  overrides: ItemOverrides = {},
 ): BuildResult {
   const issues: Issue[] = []
   const invoices: Invoice[] = []
@@ -481,9 +608,24 @@ export function buildInvoices(
       if (unconfirmed > 0) issues.push({ level: 'warn', message: `${number}: 未確定の実績が ${unconfirmed} 件含まれています` })
       if (noSlip > 0) issues.push({ level: 'warn', message: `${number}: 伝票番号が空の実績が ${noSlip} 件含まれています` })
 
-      const { breakdowns, coverLines } = buildBody(bucketRecords, bucketEquipment, client, masters, issues)
+      const unassignedMap = new Map<string, Unassigned>()
+      const { breakdowns, coverLines } = buildBody(bucketRecords, bucketEquipment, client, masters, issues, overrides, unassignedMap)
+      const unassigned = [...unassignedMap.values()]
+      if (unassigned.length > 0) {
+        issues.push({
+          level: 'error',
+          message: `${number}: 見積書の品目が割り当てられていない実績が ${unassigned.reduce((s, u) => s + u.rows, 0)} 行あります。割り当てるまで、この請求書は下書きです`,
+        })
+      }
+      const extra = [...new Set(breakdowns.flatMap((b) => b.rows.filter((r) => r.item?.needsQuote).map((r) => r.item!.name)))]
+      if (extra.length > 0) {
+        issues.push({
+          level: 'warn',
+          message: `${number}: 見積書にない品目を使っています(追加の見積書が必要): ${extra.join('、')}`,
+        })
+      }
       const expenseLines = (expenses[number] ?? []).map(expenseLine)
-      const common = { client, siteName: bucket.siteName, period, dueDate: due, expenseKey: number }
+      const common = { client, siteName: bucket.siteName, period, dueDate: due, expenseKey: number, unassigned }
 
       if (client.expenseMode === 'separate') {
         invoices.push(
@@ -492,7 +634,7 @@ export function buildInvoices(
         if (expenseLines.length > 0) {
           invoices.push(
             finalize(
-              { ...common, number: `${number}-E`, isExpenseOnly: true, coverLines: expenseLines, breakdowns: [], recordCount: 0 },
+              { ...common, number: `${number}-E`, isExpenseOnly: true, coverLines: expenseLines, breakdowns: [], recordCount: 0, unassigned: [] },
               rounding,
             ),
           )
