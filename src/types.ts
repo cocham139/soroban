@@ -100,6 +100,21 @@ export interface Site {
   dayNightRule: DayNightRule | ''
 }
 
+/**
+ * 単価の単位
+ * standard = 元請けの計算方式に従う(時間単価なら延べ時間、人工なら人数)
+ * visit    = 1回いくら(内訳書の1行 = 同じ日・同じ作業・同じ時間 を1回と数える。例: 規制1回)
+ * monthly  = 月いくら(請求書ごとに1式。人数や回数に関係なく同じ額)
+ */
+export type PriceUnit = 'standard' | 'visit' | 'monthly'
+/**
+ * 1回いくらのときの人の分
+ * none     = 1回の料金だけ(人数・時間は請求しない)
+ * plus     = 1回の料金 + 人の分(元請けの計算方式で、日勤・夜勤の単価を使う)
+ * included = 決まった人数までは1回の料金に込み、超えた人数は1人いくらで追加
+ */
+export type VisitPeople = 'none' | 'plus' | 'included'
+
 /** 人の単価(元請け × 現場 × 職種) */
 export interface Rate {
   id: string
@@ -113,6 +128,22 @@ export interface Rate {
   nightPrice: number
   /** 人工のときの残業時間単価 */
   overtimeHourly: number
+  /** 単価の単位(既定は元請けの計算方式) */
+  priceUnit: PriceUnit
+  /** 1回いくらのときの呼び方(内訳書の列名。例: 規制) */
+  visitLabel: string
+  /** 1回いくら: 昼の1回の単価 */
+  visitDayPrice: number
+  /** 1回いくら: 夜の1回の単価 */
+  visitNightPrice: number
+  /** 1回いくらのときの人の分 */
+  visitPeople: VisitPeople
+  /** 人数込みのとき、1回の料金に含まれる人数 */
+  includedPeople: number
+  /** 人数込みのとき、超えた1人あたりの追加料金(1回ごと) */
+  extraPersonPrice: number
+  /** 月いくら: 月額 */
+  monthlyPrice: number
 }
 
 /** 機材・車両の単価(元請け × 現場 × 品目、1日1台あたり) */
@@ -135,18 +166,23 @@ export interface Masters {
 
 export type TaxRate = 10 | 0
 
+/** 請求書に手で足す行(経費・その他の請求)。数量 × 単価 = 金額(以前の版の行は数量・単位・単価がなく、金額だけ) */
 export interface ExpenseLine {
   id: string
   description: string
   amount: number
   taxRate: TaxRate
+  quantity?: number
+  /** 単位は自由入力(式・回・人・日 など) */
+  unit?: string
+  unitPrice?: number
 }
 
 /** 内訳書の数量の列(日勤・夜勤・残業・機材ごと) */
 export interface BreakdownColumn {
   key: string
   label: string
-  unit: '時間' | '人工' | '台'
+  unit: '時間' | '人工' | '台' | '回' | '人' | '式'
   unitPrice: number
 }
 

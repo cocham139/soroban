@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Client, CoverLine, EquipmentRecord, Masters, Rate, WorkRecord } from '../types'
 import { allocateTax, buildInvoices, roundDiv, summarizeTax } from './invoice'
-import { emptyMasters, newClient, newEquipmentRate, newSite } from './masters'
+import { emptyMasters, newClient, newEquipmentRate, newRate, newSite } from './masters'
 
 let seq = 0
 function rec(o: Partial<WorkRecord> = {}): WorkRecord {
@@ -18,7 +18,7 @@ function rec(o: Partial<WorkRecord> = {}): WorkRecord {
 const night = (o: Partial<WorkRecord> = {}) => rec({ shiftType: '夜勤', start: '19:00', end: '04:00', ...o })
 
 function rate(o: Partial<Rate> = {}): Rate {
-  return { id: 'rate', clientId: 'C001', siteId: '', jobType: '規制保安員', dayPrice: 3000, nightPrice: 4000, overtimeHourly: 0, ...o }
+  return { ...newRate('C001', '', '規制保安員'), id: 'rate', dayPrice: 3000, nightPrice: 4000, ...o }
 }
 
 function masters(client: Partial<Client> = {}, rates: Rate[] = [rate()], extra: Partial<Masters> = {}): Masters {
@@ -259,5 +259,75 @@ describe('請求書の単位・期間・経費', () => {
     expect(issues.map((i) => i.level)).toEqual(['error', 'error'])
     expect(issues[0].message).toContain('重複')
     expect(issues[1].message).toContain('C999')
+  })
+})
+
+describe('1回いくら・月いくら', () => {
+  // 同じ日・同じ作業・同じ時間の3人 = 1回。別の作業(夜) = もう1回
+  const records = () => [rec(), rec(), rec(), night({ work: '構造物補修' })]
+  const visit = (o: Partial<Rate> = {}) =>
+    rate({ priceUnit: 'visit', visitDayPrice: 50000, visitNightPrice: 70000, ...o })
+
+  it('1回の料金だけ: 内訳書の1行を1回と数え、昼夜の1回の単価を掛ける。人の分は請求しない', () => {
+    const { invoices, issues } = build(records(), masters({}, [visit()]))
+    expect(issues).toEqual([])
+    const b = invoices[0].breakdowns[0]
+    expect(b.columns.map((c) => c.label)).toEqual(['規制(昼)', '規制(夜)'])
+    expect(b.rows.map((r) => r.amount)).toEqual([50000, 70000])
+    expect(b.totals).toEqual({ visitDay: 1, visitNight: 1 })
+    expect(invoices[0].subtotal).toBe(120000)
+  })
+
+  it('1回の料金 + 人の分: 時間単価の元請けなら延べ時間も請求する', () => {
+    const { invoices } = build(records(), masters({}, [visit({ visitPeople: 'plus' })]))
+    const b = invoices[0].breakdowns[0]
+    // 昼: 3人 × 8時間 × 3,000 + 50,000 / 夜: 日勤1時間 × 3,000 + 夜勤7時間 × 4,000 + 70,000
+    expect(b.rows.map((r) => r.amount)).toEqual([3 * 8 * 3000 + 50000, 3000 + 7 * 4000 + 70000])
+    expect(b.columns.map((c) => c.key)).toEqual(['day', 'night', 'visitDay', 'visitNight'])
+  })
+
+  it('決まった人数まで込み: 超えた人数だけ1人いくらで追加する', () => {
+    const { invoices } = build(records(), masters({}, [visit({ visitPeople: 'included', includedPeople: 2, extraPersonPrice: 15000 })]))
+    const b = invoices[0].breakdowns[0]
+    expect(b.rows.map((r) => r.amount)).toEqual([50000 + 15000, 70000])
+    expect(b.totals.extraPeople).toBe(1)
+  })
+
+  it('勤務区分に従う元請けでは、夜勤の行を夜の1回にする', () => {
+    const { invoices } = build([night({ start: '17:00', end: '22:00', breakMinutes: 0, workMinutes: 300 })], masters({ dayNightRule: 'shift' }, [visit()]))
+    expect(invoices[0].breakdowns[0].totals).toEqual({ visitNight: 1 })
+  })
+
+  it('月いくら: 人数や回数に関係なく請求書ごとに1式。日々の行は記録として残し、月額の行を最後に置く', () => {
+    const { invoices } = build(records(), masters({}, [rate({ priceUnit: 'monthly', monthlyPrice: 300000 })]))
+    const b = invoices[0].breakdowns[0]
+    expect(b.rows).toHaveLength(3)
+    expect(b.rows.map((r) => r.amount)).toEqual([0, 0, 300000])
+    expect(b.rows[2].work).toBe('月額')
+    expect(invoices[0].subtotal).toBe(300000)
+  })
+
+  it('職種ごとに単位を変えられる(同じ現場で、規制保安員は1回、作業員は時間)', () => {
+    const m = masters({}, [visit(), rate({ jobType: '作業員', dayPrice: 2000 })])
+    const { invoices } = build([rec(), rec({ jobType: '作業員' })], m)
+    expect(invoices[0].breakdowns.map((b) => b.amount).sort((a, b) => a - b)).toEqual([16000, 50000])
+    expect(invoices[0].coverLines[0].amount).toBe(66000)
+  })
+})
+
+describe('手で足す行(自由入力)', () => {
+  it('数量 × 単価で金額を出し、単位は自由に書ける。以前の金額だけの行もそのまま使える', () => {
+    const expenses = {
+      '202610-C001': [
+        { id: 'a', description: '規制材の運搬', quantity: 3, unit: '往復', unitPrice: 8000, amount: 0, taxRate: 10 as const },
+        { id: 'b', description: '駐車場代', amount: 1500, taxRate: 10 as const },
+      ],
+    }
+    const { invoices } = build([rec()], masters(), [], expenses)
+    const lines = invoices[0].coverLines.filter((l) => l.siteId === null)
+    expect(lines.map((l) => [l.quantity, l.unit, l.unitPrice, l.amount])).toEqual([
+      [3, '往復', 8000, 24000],
+      [1, '式', 1500, 1500],
+    ])
   })
 })

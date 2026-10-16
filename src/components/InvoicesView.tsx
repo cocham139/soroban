@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { EquipmentRecord, ExpenseLine, Invoice, Masters, TaxRate, WorkRecord } from '../types'
-import { buildInvoices } from '../lib/invoice'
+import { buildInvoices, expenseAmount } from '../lib/invoice'
 import { breakdownsToCsv, downloadText, invoicesToCsv, issueDateOf } from '../lib/export'
 import { yen } from '../lib/format'
 import IssueList from './IssueList'
@@ -137,12 +137,19 @@ export default function InvoicesView({ records, equipment, masters, expenses, se
         {current && (
           <div className="invoice-inputs">
             <div>
-              <h3>経費({key}{current.client.expenseMode === 'separate' ? ` → 別の請求書 ${key}-E` : ' の表紙に追加'})</h3>
+              <h3>経費・その他の請求({key}{current.client.expenseMode === 'separate' ? ` → 別の請求書 ${key}-E` : ' の表紙に追加'})</h3>
+              <p className="hint">交通費などの経費のほか、単価マスタにない請求も、品目・数量・単位・単価を自由に入れて表紙に足せます。</p>
               {expenseLines.map((e) => (
                 <div key={e.id} className="expense-row">
-                  <input placeholder="摘要(交通費・駐車場代など)" value={e.description} onChange={(ev) => updateExpense(e.id, { description: ev.target.value })} />
-                  <input className="n" type="number" value={e.amount} onChange={(ev) => updateExpense(e.id, { amount: Math.trunc(Number(ev.target.value) || 0) })} />
-                  <span>円(税抜)</span>
+                  <input placeholder="品目・摘要(交通費・規制材の運搬など)" value={e.description} onChange={(ev) => updateExpense(e.id, { description: ev.target.value })} />
+                  <input className="xs" type="number" min={0} step="any" value={e.quantity ?? 1} title="数量"
+                    onChange={(ev) => updateExpense(e.id, { quantity: Number(ev.target.value) || 0, unitPrice: e.unitPrice ?? e.amount })} />
+                  <input className="xs" placeholder="式" value={e.unit ?? ''} title="単位(自由入力)"
+                    onChange={(ev) => updateExpense(e.id, { unit: ev.target.value, unitPrice: e.unitPrice ?? e.amount })} />
+                  <span>×</span>
+                  <input className="n" type="number" value={e.unitPrice ?? e.amount} title="単価"
+                    onChange={(ev) => updateExpense(e.id, { unitPrice: Math.trunc(Number(ev.target.value) || 0), quantity: e.quantity ?? 1 })} />
+                  <span>円 = ¥{yen(expenseAmount(e))}(税抜)</span>
                   <select value={e.taxRate} onChange={(ev) => updateExpense(e.id, { taxRate: Number(ev.target.value) as TaxRate })}>
                     <option value={10}>10%</option>
                     <option value={0}>対象外(立替金など)</option>
@@ -150,8 +157,12 @@ export default function InvoicesView({ records, equipment, masters, expenses, se
                   <button className="danger" onClick={() => setExpenseLines(expenseLines.filter((x) => x.id !== e.id))}>削除</button>
                 </div>
               ))}
-              <button onClick={() => setExpenseLines([...expenseLines, { id: crypto.randomUUID(), description: '', amount: 0, taxRate: 10 }])}>
-                経費を追加
+              <button
+                onClick={() =>
+                  setExpenseLines([...expenseLines, { id: crypto.randomUUID(), description: '', amount: 0, taxRate: 10, quantity: 1, unit: '式', unitPrice: 0 }])
+                }
+              >
+                行を追加
               </button>
             </div>
             <div>

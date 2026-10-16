@@ -44,7 +44,23 @@ export function newSite(clientId: string, siteId: string, coverName = ''): Site 
 }
 
 export function newRate(clientId: string, siteId: string, jobType: string): Rate {
-  return { id: crypto.randomUUID(), clientId, siteId, jobType, dayPrice: 0, nightPrice: 0, overtimeHourly: 0 }
+  return {
+    id: crypto.randomUUID(),
+    clientId,
+    siteId,
+    jobType,
+    dayPrice: 0,
+    nightPrice: 0,
+    overtimeHourly: 0,
+    priceUnit: 'standard',
+    visitLabel: '規制',
+    visitDayPrice: 0,
+    visitNightPrice: 0,
+    visitPeople: 'none',
+    includedPeople: 0,
+    extraPersonPrice: 0,
+    monthlyPrice: 0,
+  }
 }
 
 export function newEquipmentRate(clientId: string, siteId: string, item: string): EquipmentRate {

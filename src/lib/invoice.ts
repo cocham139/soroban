@@ -86,10 +86,30 @@ interface RowAcc {
   row: BreakdownRow
   /** 時間単価の列は分で集計し、最後に時間に直す */
   minutes: Record<string, number>
+  /** この行の人数(1回いくらの人数込み・追加人員の計算に使う) */
+  people: number
+  /** この行が夜の1回か(1回いくらの昼夜の判定) */
+  night: boolean
+  /** 月額の行など、日付順に並べず最後に置く行 */
+  tail?: boolean
 }
 
 function rowKey(date: string, work: string, time: string) {
   return [date, work, time].join('\u0000')
+}
+
+const newAcc = (date: string, work: string, time: string): RowAcc => ({
+  row: { date, work, time, quantities: {}, amounts: {}, amount: 0 },
+  minutes: {},
+  people: 0,
+  night: false,
+})
+
+/** 行に数量と金額を足す */
+function addTo(acc: RowAcc, key: string, quantity: number, amount: number) {
+  acc.row.quantities[key] = Math.round(((acc.row.quantities[key] ?? 0) + quantity) * 100) / 100
+  acc.row.amounts[key] = (acc.row.amounts[key] ?? 0) + amount
+  acc.row.amount += amount
 }
 
 /** 現場 × 職種 の実績から内訳書を作る(機材は呼び出し側で追加する) */
@@ -100,19 +120,38 @@ function personBreakdown(
   rule: DayNightRule,
   title: string,
   issues: Issue[],
-): { breakdown: Breakdown; rows: Map<string, RowAcc> } {
+): { breakdown: Breakdown; rows: Map<string, RowAcc>; keep: string[] } {
+  const unit = rate.priceUnit ?? 'standard'
+  const visitPeople = rate.visitPeople ?? 'none'
+  // 人の分(時間・人工)を請求するか。1回いくらの「人の分も」と、元請けの計算方式どおりの単価のとき
+  const chargePeople = unit === 'standard' || (unit === 'visit' && visitPeople === 'plus')
   const hourly = client.billingMethod === 'hourly'
   const prorate = !hourly && client.ninkuMode === 'prorate'
-  const columns: BreakdownColumn[] = hourly
-    ? [
-        { key: 'day', label: '日勤', unit: '時間', unitPrice: rate.dayPrice },
-        { key: 'night', label: '夜勤', unit: '時間', unitPrice: rate.nightPrice },
-      ]
-    : [
-        { key: 'day', label: '日勤', unit: '人工', unitPrice: rate.dayPrice },
-        { key: 'night', label: '夜勤', unit: '人工', unitPrice: rate.nightPrice },
-        { key: 'overtime', label: '残業', unit: '時間', unitPrice: rate.overtimeHourly },
-      ]
+  const peopleColumns: BreakdownColumn[] = !chargePeople
+    ? []
+    : hourly
+      ? [
+          { key: 'day', label: '日勤', unit: '時間', unitPrice: rate.dayPrice },
+          { key: 'night', label: '夜勤', unit: '時間', unitPrice: rate.nightPrice },
+        ]
+      : [
+          { key: 'day', label: '日勤', unit: '人工', unitPrice: rate.dayPrice },
+          { key: 'night', label: '夜勤', unit: '人工', unitPrice: rate.nightPrice },
+          { key: 'overtime', label: '残業', unit: '時間', unitPrice: rate.overtimeHourly },
+        ]
+  const label = rate.visitLabel?.trim() || '1回'
+  const extraColumns: BreakdownColumn[] =
+    unit === 'visit'
+      ? [
+          { key: 'visitDay', label: `${label}(昼)`, unit: '回', unitPrice: rate.visitDayPrice ?? 0 },
+          { key: 'visitNight', label: `${label}(夜)`, unit: '回', unitPrice: rate.visitNightPrice ?? 0 },
+          ...(visitPeople === 'included'
+            ? [{ key: 'extraPeople', label: '追加人員', unit: '人' as const, unitPrice: rate.extraPersonPrice ?? 0 }]
+            : []),
+        ]
+      : unit === 'monthly'
+        ? [{ key: 'monthly', label: '月額', unit: '式', unitPrice: rate.monthlyPrice ?? 0 }]
+        : []
 
   const rows = new Map<string, RowAcc>()
   let overtimeWithoutRate = 0
@@ -121,13 +160,17 @@ function personBreakdown(
     const time = `${r.start}-${r.end}`
     const key = rowKey(r.date, r.work, time)
     let acc = rows.get(key)
+    const split = rule === 'band' ? splitDayNight(r.start, r.end, r.breakMinutes, client.nightStart, client.nightEnd) : null
     if (!acc) {
-      acc = { row: { date: r.date, work: r.work, time, quantities: {}, amounts: {}, amount: 0 }, minutes: {} }
+      acc = newAcc(r.date, r.work, time)
+      // 1回の昼夜: 勤務区分に従うなら区分、時間帯で分けるなら長いほうの時間帯
+      acc.night = split ? split.night > split.day : isNight(r.shiftType)
       rows.set(key, acc)
     }
+    acc.people++
+    if (!chargePeople) continue
     const add = (k: string, n: number) => (acc!.minutes[k] = (acc!.minutes[k] ?? 0) + n)
 
-    const split = rule === 'band' ? splitDayNight(r.start, r.end, r.breakMinutes, client.nightStart, client.nightEnd) : null
     if (split && hourly && split.day + split.night !== r.workMinutes) mismatched.push(r.id)
 
     if (hourly) {
@@ -161,22 +204,47 @@ function personBreakdown(
   // 集計値をこの数で割ると数量になる(時間 = 分 ÷ 60、按分の人工 = 分 ÷ 所定実働、1日1人工 = 人数 ÷ 1)
   const unitMinutes = (c: BreakdownColumn) => (c.unit !== '人工' ? 60 : prorate ? client.standardMinutes : 1)
   for (const acc of rows.values()) {
-    for (const c of columns) {
+    for (const c of peopleColumns) {
       const m = acc.minutes[c.key] ?? 0
       if (m === 0) continue
-      const amount = yen(m * c.unitPrice, unitMinutes(c))
-      acc.row.quantities[c.key] = Math.round((m / unitMinutes(c)) * 100) / 100
-      acc.row.amounts[c.key] = amount
-      acc.row.amount += amount
+      addTo(acc, c.key, m / unitMinutes(c), yen(m * c.unitPrice, unitMinutes(c)))
+    }
+    if (unit === 'visit') {
+      // 内訳書の1行 = 1回
+      const c = extraColumns[acc.night ? 1 : 0]
+      addTo(acc, c.key, 1, c.unitPrice)
+      if (visitPeople === 'included') {
+        const extra = Math.max(0, acc.people - (rate.includedPeople ?? 0))
+        if (extra > 0) addTo(acc, 'extraPeople', extra, extra * (rate.extraPersonPrice ?? 0))
+      }
     }
   }
-  return { breakdown: { siteId: '', title, columns, rows: [], totals: {}, amount: 0 }, rows }
+  if (unit === 'monthly' && rows.size > 0) {
+    // 月額は請求書ごとに1式。日々の行は実績の記録として載せ、最後に月額の行を置く
+    const acc = newAcc('', '月額', '')
+    acc.tail = true
+    addTo(acc, 'monthly', 1, rate.monthlyPrice ?? 0)
+    rows.set(rowKey('', '月額', ''), acc)
+  }
+  const columns = [...peopleColumns, ...extraColumns]
+  return {
+    breakdown: { siteId: '', title, columns, rows: [], totals: {}, amount: 0 },
+    rows,
+    // 時間・人工の請求では日勤・夜勤の列を常に出す。ほかは数量がある列だけ
+    keep: chargePeople ? ['day', 'night'] : [],
+  }
 }
 
 function finishBreakdown(b: Breakdown, rows: Map<string, RowAcc>, keepColumns: string[]): Breakdown {
   const sorted = [...rows.values()]
+    .sort(
+      (x, y) =>
+        Number(!!x.tail) - Number(!!y.tail) ||
+        x.row.date.localeCompare(y.row.date) ||
+        x.row.time.localeCompare(y.row.time) ||
+        x.row.work.localeCompare(y.row.work, 'ja'),
+    )
     .map((a) => a.row)
-    .sort((x, y) => x.date.localeCompare(y.date) || x.time.localeCompare(y.time) || x.work.localeCompare(y.work, 'ja'))
   const totals: Record<string, number> = {}
   for (const r of sorted) {
     for (const [k, v] of Object.entries(r.quantities)) totals[k] = Math.round(((totals[k] ?? 0) + v) * 100) / 100
@@ -228,7 +296,7 @@ function buildBody(
         return
       }
       const p = personBreakdown(list, client, rate, site?.dayNightRule || client.dayNightRule, title, issues)
-      parts.push({ ...p, breakdown: { ...p.breakdown, siteId }, keep: ['day', 'night'] })
+      parts.push({ ...p, breakdown: { ...p.breakdown, siteId } })
     })
 
     if (siteEquipment.length > 0) {
@@ -253,7 +321,7 @@ function buildBody(
             .filter((a) => a.row.date === e.date && (!e.work || a.row.work === e.work))
             .sort((x, y) => x.row.time.localeCompare(y.row.time))[0] ??
           (() => {
-            const created: RowAcc = { row: { date: e.date, work: e.work, time: '', quantities: {}, amounts: {}, amount: 0 }, minutes: {} }
+            const created = newAcc(e.date, e.work, '')
             target.rows.set(rowKey(e.date, e.work, ''), created)
             return created
           })()
@@ -292,15 +360,21 @@ function buildBody(
   return { breakdowns, coverLines }
 }
 
+/** 手で足す行の金額。数量と単価があれば 数量 × 単価(1円未満は四捨五入)、なければ入力した金額 */
+export function expenseAmount(e: ExpenseLine): number {
+  return e.unitPrice !== undefined ? Math.round((e.quantity ?? 1) * e.unitPrice) : e.amount
+}
+
 function expenseLine(e: ExpenseLine): CoverLine {
+  const amount = expenseAmount(e)
   return {
     siteId: null,
     name: e.description,
     spec: '',
-    quantity: 1,
-    unit: '式',
-    unitPrice: e.amount,
-    amount: e.amount,
+    quantity: e.quantity ?? 1,
+    unit: e.unit?.trim() || '式',
+    unitPrice: e.unitPrice ?? e.amount,
+    amount,
     taxRate: e.taxRate,
     tax: 0,
   }

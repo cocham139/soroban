@@ -1,5 +1,5 @@
 import type { ChangeEvent, ReactNode } from 'react'
-import type { Client, Company, DayNightRule, EquipmentRecord, Masters, RoundingMode, Site, WorkRecord } from '../types'
+import type { Client, Company, DayNightRule, EquipmentRecord, Masters, PriceUnit, RoundingMode, Site, VisitPeople, WorkRecord } from '../types'
 import {
   missingClients,
   missingEquipmentRates,
@@ -278,15 +278,19 @@ export default function MastersView({ masters, setMasters, records, equipment }:
       <p className="hint">
         元請け × 職種 ごとの単価です。現場IDを空欄にすると、その元請けの全現場に使います(現場IDを入れた行が優先)。
         時間単価の元請けは「円/時間」、人工の元請けは「円/人工」で入れます。
+        「単価の単位」で、規制1回いくら(1日・1現場・1作業を1回と数えます)や、月いくら(請求書ごとに1式)にもできます。
       </p>
       <MissingCallout
         count={missingRates(records, masters).length}
         what="「元請け × 職種」の単価"
         onAdd={() => append('rates', missingRates(records, masters))}
       />
-      <Table head={['元請け', '現場ID(空欄=全現場)', '職種', '日勤', '夜勤', '残業(人工のみ)']}>
+      <Table head={['元請け', '現場ID(空欄=全現場)', '職種', '単価の単位', '1回・月額の設定', '日勤', '夜勤', '残業(人工のみ)']}>
         {masters.rates.map((r, i) => {
           const unit = billingOf(r.clientId) === 'ninku' ? '円/人工' : '円/時間'
+          const priceUnit = r.priceUnit ?? 'standard'
+          // 人の分(日勤・夜勤・残業の単価)を使うか
+          const people = priceUnit === 'standard' || (priceUnit === 'visit' && r.visitPeople === 'plus')
           return (
             <tr key={r.id}>
               <td>{clientSelect(r.clientId, (v) => update('rates', i, { clientId: v }))}</td>
@@ -296,15 +300,72 @@ export default function MastersView({ masters, setMasters, records, equipment }:
               </td>
               <td><input className="s" value={r.jobType} placeholder="(空欄)" onChange={(e) => update('rates', i, { jobType: e.target.value })} /></td>
               <td>
-                <input className="n" type="number" min={0} value={r.dayPrice} onChange={(e) => update('rates', i, { dayPrice: toInt(e.target.value) })} />
+                <select value={priceUnit} onChange={(e) => update('rates', i, { priceUnit: e.target.value as PriceUnit })}>
+                  <option value="standard">{billingOf(r.clientId) === 'ninku' ? '1人1日いくら(人工)' : '1時間いくら'}</option>
+                  <option value="visit">1回いくら</option>
+                  <option value="monthly">月いくら</option>
+                </select>
+              </td>
+              <td className="rate-extra">
+                {priceUnit === 'visit' && (
+                  <>
+                    <label>
+                      呼び方
+                      <input className="s" value={r.visitLabel ?? ''} placeholder="規制" onChange={(e) => update('rates', i, { visitLabel: e.target.value })} />
+                    </label>
+                    <label>
+                      昼の1回
+                      <input className="n" type="number" min={0} value={r.visitDayPrice ?? 0} onChange={(e) => update('rates', i, { visitDayPrice: toInt(e.target.value) })} />
+                      <span className="sub">円/回</span>
+                    </label>
+                    <label>
+                      夜の1回
+                      <input className="n" type="number" min={0} value={r.visitNightPrice ?? 0} onChange={(e) => update('rates', i, { visitNightPrice: toInt(e.target.value) })} />
+                      <span className="sub">円/回</span>
+                    </label>
+                    <label>
+                      人の分
+                      <select value={r.visitPeople ?? 'none'} onChange={(e) => update('rates', i, { visitPeople: e.target.value as VisitPeople })}>
+                        <option value="none">1回の料金だけ</option>
+                        <option value="plus">1回の料金 + 人の分(日勤・夜勤の単価)</option>
+                        <option value="included">決まった人数までは込み</option>
+                      </select>
+                    </label>
+                    {r.visitPeople === 'included' && (
+                      <>
+                        <label>
+                          込みの人数
+                          <input className="xs" type="number" min={0} value={r.includedPeople ?? 0} onChange={(e) => update('rates', i, { includedPeople: toInt(e.target.value) })} />
+                          <span className="sub">人まで</span>
+                        </label>
+                        <label>
+                          超えた1人
+                          <input className="n" type="number" min={0} value={r.extraPersonPrice ?? 0} onChange={(e) => update('rates', i, { extraPersonPrice: toInt(e.target.value) })} />
+                          <span className="sub">円/人・回</span>
+                        </label>
+                      </>
+                    )}
+                  </>
+                )}
+                {priceUnit === 'monthly' && (
+                  <label>
+                    月額
+                    <input className="n" type="number" min={0} value={r.monthlyPrice ?? 0} onChange={(e) => update('rates', i, { monthlyPrice: toInt(e.target.value) })} />
+                    <span className="sub">円/月(請求書ごとに1式)</span>
+                  </label>
+                )}
+                {priceUnit === 'standard' && <span className="sub">—</span>}
+              </td>
+              <td>
+                <input className="n" type="number" min={0} disabled={!people} value={r.dayPrice} onChange={(e) => update('rates', i, { dayPrice: toInt(e.target.value) })} />
                 <span className="sub">{unit}</span>
               </td>
               <td>
-                <input className="n" type="number" min={0} value={r.nightPrice} onChange={(e) => update('rates', i, { nightPrice: toInt(e.target.value) })} />
+                <input className="n" type="number" min={0} disabled={!people} value={r.nightPrice} onChange={(e) => update('rates', i, { nightPrice: toInt(e.target.value) })} />
                 <span className="sub">{unit}</span>
               </td>
               <td>
-                <input className="n" type="number" min={0} disabled={billingOf(r.clientId) !== 'ninku'} value={r.overtimeHourly}
+                <input className="n" type="number" min={0} disabled={!people || billingOf(r.clientId) !== 'ninku'} value={r.overtimeHourly}
                   onChange={(e) => update('rates', i, { overtimeHourly: toInt(e.target.value) })} />
                 <span className="sub">円/時間</span>
               </td>

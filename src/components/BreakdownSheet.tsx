@@ -30,11 +30,11 @@ export default function BreakdownSheet({ breakdown: b, periodEnd }: Props) {
         <tbody>
           {b.rows.map((r, i) => (
             <tr key={i}>
-              <td className="nowrap">{monthDay(r.date)}</td>
+              <td className="nowrap">{r.date ? monthDay(r.date) : ''}</td>
               <td>{r.work}</td>
               <td className="nowrap">{r.time.replace('-', ' - ')}</td>
               {b.columns.map((c) => <td key={c.key} className="num">{qty(r.quantities[c.key])}</td>)}
-              <td className="num">{yen(r.amount)}</td>
+              <td className="num">{r.amount ? yen(r.amount) : ''}</td>
             </tr>
           ))}
         </tbody>
