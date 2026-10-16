@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { billingPeriod, dueDate, previousMonth } from './period'
+import { billingPeriod, dueDate, monthsBetween, previousMonth } from './period'
 
 describe('billingPeriod', () => {
   it('末日締めはその月の1日〜末日', () => {
@@ -37,4 +37,12 @@ describe('dueDate', () => {
 it('previousMonth', () => {
   expect(previousMonth(new Date(2026, 0, 15))).toBe('2025-12')
   expect(previousMonth(new Date(2026, 9, 1))).toBe('2026-09')
+})
+
+describe('monthsBetween', () => {
+  it('開始月〜終了月を両端を含めて並べる(年をまたぐ、逆順も可)', () => {
+    expect(monthsBetween('2026-11', '2027-02')).toEqual(['2026-11', '2026-12', '2027-01', '2027-02'])
+    expect(monthsBetween('2026-10', '2026-08')).toEqual(['2026-08', '2026-09', '2026-10'])
+    expect(monthsBetween('2026-10', '2026-10')).toEqual(['2026-10'])
+  })
 })

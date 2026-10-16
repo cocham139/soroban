@@ -57,3 +57,18 @@ export function previousMonth(today: Date): string {
 export function todayString(today: Date): string {
   return fmt(today.getFullYear(), today.getMonth() + 1, today.getDate())
 }
+
+/** 開始月〜終了月(YYYY-MM、両端を含む)の月の一覧。逆順なら入れ替え、最大36か月 */
+export function monthsBetween(from: string, to: string): string[] {
+  const [a, b] = [from, to].sort()
+  if (!/^\d{4}-\d{2}$/.test(a) || !/^\d{4}-\d{2}$/.test(b)) return []
+  const [y, m] = parseMonth(a)
+  const result: string[] = []
+  for (let i = 0; i < 36; i++) {
+    const [yy, mm] = shiftMonth(y, m, i)
+    const s = `${yy}-${pad(mm)}`
+    if (s > b) break
+    result.push(s)
+  }
+  return result
+}

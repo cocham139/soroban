@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { EquipmentRecord, ExpenseLine, Invoice, ItemOverrides, Masters, TaxRate, Unassigned, WorkRecord } from '../types'
 import { RowOverridePanel, UnassignedPanel } from './AssignPanel'
 import { buildInvoices, expenseAmount } from '../lib/invoice'
+import { monthsBetween } from '../lib/period'
 import { breakdownsToCsv, downloadText, invoicesToCsv, issueDateOf } from '../lib/export'
 import { yen } from '../lib/format'
 import IssueList from './IssueList'
@@ -31,11 +32,35 @@ export default function InvoicesView({
   const [issueDate, setIssueDate] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [printAll, setPrintAll] = useState(false)
+  /** month = 1か月ごと / range = 開始月〜終了月 をまとめて表示 */
+  const [mode, setMode] = useState<'month' | 'range'>('month')
+  const [rangeFrom, setRangeFrom] = useState(month)
+  const [rangeTo, setRangeTo] = useState(month)
+  /** 元請けの絞り込み(ID・名前の一部) */
+  const [clientQuery, setClientQuery] = useState('')
 
-  const { invoices, issues } = useMemo(
-    () => buildInvoices(records, equipment, masters, month, expenses, overrides),
-    [records, equipment, masters, month, expenses, overrides],
+  const months = useMemo(() => (mode === 'month' ? [month] : monthsBetween(rangeFrom, rangeTo)), [mode, month, rangeFrom, rangeTo])
+  const built = useMemo(() => {
+    const all = months.map((m) => buildInvoices(records, equipment, masters, m, expenses, overrides))
+    return {
+      invoices: all.flatMap((r) => r.invoices),
+      // 月をまたいで同じ注意(未登録の元請けなど)が重なるので、1つにまとめる
+      issues: all.flatMap((r) => r.issues).filter((x, i, arr) => arr.findIndex((y) => y.message === x.message) === i),
+    }
+  }, [months, records, equipment, masters, expenses, overrides])
+  const q = clientQuery.replace(/[\s　]/g, '').toLowerCase()
+  const matchClient = (id: string, name: string) => !q || `${id}${name}`.replace(/[\s　]/g, '').toLowerCase().includes(q)
+  const invoices = useMemo(() => built.invoices.filter((i) => matchClient(i.client.id, i.client.name)), [built, q])
+  // 請求書番号の付いた注意は、表示している請求書の分だけ出す
+  const issues = useMemo(
+    () =>
+      built.issues.filter((x) => {
+        const m = /^(\d{6}-[^:]+?):/.exec(x.message)
+        return !q || !m || invoices.some((i) => i.number === m[1])
+      }),
+    [built, invoices, q],
   )
+  const label = mode === 'month' ? month.replace('-', '') : `${months[0]?.replace('-', '')}-${months[months.length - 1]?.replace('-', '')}`
   // 割り当て待ちは、請求書をまたいで同じ組み合わせを1行にまとめる
   const unassigned = useMemo(() => {
     const m = new Map<string, Unassigned>()
@@ -69,7 +94,6 @@ export default function InvoicesView({
   const updateExpense = (id: string, patch: Partial<ExpenseLine>) =>
     setExpenseLines(expenseLines.map((e) => (e.id === id ? { ...e, ...patch } : e)))
 
-  const yyyymm = month.replace('-', '')
   const grandTotal = invoices.reduce((s, i) => s + i.total, 0)
 
   const sheets = (inv: Invoice) => (
@@ -86,7 +110,40 @@ export default function InvoicesView({
       <div className="no-print">
         <h2>請求書</h2>
         <div className="toolbar">
-          <label>請求月 <input type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} /></label>
+          <div className="segmented">
+            <button className={mode === 'month' ? 'tab active' : 'tab'} onClick={() => setMode('month')}>月ごと</button>
+            <button
+              className={mode === 'range' ? 'tab active' : 'tab'}
+              onClick={() => {
+                if (mode !== 'range') {
+                  setRangeFrom(month)
+                  setRangeTo(month)
+                }
+                setMode('range')
+              }}
+            >
+              期間で
+            </button>
+          </div>
+          {mode === 'month' ? (
+            <label>請求月 <input type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} /></label>
+          ) : (
+            <label>
+              請求月 <input type="month" value={rangeFrom} onChange={(e) => e.target.value && setRangeFrom(e.target.value)} /> 〜{' '}
+              <input type="month" value={rangeTo} onChange={(e) => e.target.value && setRangeTo(e.target.value)} />
+              <span className="sub">({months.length}か月分)</span>
+            </label>
+          )}
+          <label>
+            元請け{' '}
+            <input list="client-list" value={clientQuery} placeholder="すべて(名前の一部で検索)" onChange={(e) => setClientQuery(e.target.value)} />
+            <datalist id="client-list">
+              {masters.clients.map((c) => <option key={c.id} value={c.name} />)}
+            </datalist>
+          </label>
+          {clientQuery && <button onClick={() => setClientQuery('')}>元請けの絞り込みを消す</button>}
+        </div>
+        <div className="toolbar">
           <label>
             発行日 <input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
           </label>
@@ -102,13 +159,13 @@ export default function InvoicesView({
           <button
             className="primary"
             disabled={invoices.length === 0}
-            onClick={() => downloadText(`請求明細_${yyyymm}.csv`, invoicesToCsv(invoices, issueDate), 'text/csv')}
+            onClick={() => downloadText(`請求明細_${label}.csv`, invoicesToCsv(invoices, issueDate), 'text/csv')}
           >
             請求明細CSV
           </button>
           <button
             disabled={invoices.length === 0}
-            onClick={() => downloadText(`内訳明細_${yyyymm}.csv`, breakdownsToCsv(invoices), 'text/csv')}
+            onClick={() => downloadText(`内訳明細_${label}.csv`, breakdownsToCsv(invoices), 'text/csv')}
           >
             内訳明細CSV
           </button>
@@ -121,7 +178,7 @@ export default function InvoicesView({
         <UnassignedPanel list={unassigned} masters={masters} setMasters={setMasters} />
 
         {invoices.length === 0 ? (
-          <p>この請求月に請求できる実績がありません。実績の取り込みとマスタの登録を確認してください。</p>
+          <p>{clientQuery ? `「${clientQuery}」に当てはまる請求書がありません。元請けの絞り込みを確かめてください。` : "この請求月に請求できる実績がありません。実績の取り込みとマスタの登録を確認してください。"}</p>
         ) : (
           <table className="grid">
             <thead>
