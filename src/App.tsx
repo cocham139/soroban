@@ -7,8 +7,10 @@ import { DEMO_MONTH, loadDemo } from './lib/demo'
 import ImportView from './components/ImportView'
 import MastersView from './components/MastersView'
 import InvoicesView from './components/InvoicesView'
+import ChangelogView from './components/ChangelogView'
+import { APP_VERSION } from './version'
 
-type Tab = 'import' | 'masters' | 'invoices'
+type Tab = 'import' | 'masters' | 'invoices' | 'changelog'
 
 /** 以前の版で保存した実績には職種・工事名がないので補う */
 const normalizeRecords = (raw: unknown): WorkRecord[] =>
@@ -62,6 +64,9 @@ export default function App() {
             SOROBAN
           </button>
           <span className="app-header-tagline">請求書</span>
+          <button className="version-badge" onClick={() => setTab('changelog')} title="更新履歴を見る">
+            ver {APP_VERSION}
+          </button>
         </h1>
         <nav>
           {TABS.map(([key, label]) => (
@@ -87,6 +92,7 @@ export default function App() {
         {tab === 'masters' && (
           <MastersView masters={masters} setMasters={setMasters} records={records} equipment={equipment} />
         )}
+        {tab === 'changelog' && <ChangelogView />}
         {tab === 'invoices' && (
           <InvoicesView
             records={records}

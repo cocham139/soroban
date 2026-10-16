@@ -114,6 +114,8 @@ export type PriceUnit = 'standard' | 'visit' | 'monthly'
  * included = 決まった人数までは1回の料金に込み、超えた人数は1人いくらで追加
  */
 export type VisitPeople = 'none' | 'plus' | 'included'
+/** 1回いくらの数え方: row = 内訳書の1行(同じ日・同じ作業・同じ時間)ごとに1 / day = 1日ごとに1(同じ日の作業はまとめて1) */
+export type VisitCount = 'row' | 'day'
 
 /** 人の単価(元請け × 現場 × 職種) */
 export interface Rate {
@@ -132,6 +134,10 @@ export interface Rate {
   priceUnit: PriceUnit
   /** 1回いくらのときの呼び方(内訳書の列名。例: 規制) */
   visitLabel: string
+  /** 1回いくらの単位の呼び方(自由入力。回・日・現場 など。内訳書の数量の単位になる) */
+  visitUnit: string
+  /** 1回いくらの数え方 */
+  visitCount: VisitCount
   /** 1回いくら: 昼の1回の単価 */
   visitDayPrice: number
   /** 1回いくら: 夜の1回の単価 */
@@ -144,6 +150,8 @@ export interface Rate {
   extraPersonPrice: number
   /** 月いくら: 月額 */
   monthlyPrice: number
+  /** 月いくらの単位の呼び方(自由入力。式・月 など) */
+  monthlyUnit: string
 }
 
 /** 機材・車両の単価(元請け × 現場 × 品目、1日1台あたり) */
@@ -182,7 +190,8 @@ export interface ExpenseLine {
 export interface BreakdownColumn {
   key: string
   label: string
-  unit: '時間' | '人工' | '台' | '回' | '人' | '式'
+  /** 時間・人工・台・人のほか、1回いくら・月いくらは自由入力の呼び方(回・日・式 など) */
+  unit: string
   unitPrice: number
 }
 

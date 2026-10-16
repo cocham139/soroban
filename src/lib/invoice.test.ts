@@ -307,6 +307,21 @@ describe('1回いくら・月いくら', () => {
     expect(invoices[0].subtotal).toBe(300000)
   })
 
+  it('単位の呼び方は自由。1日ごとに数えると、同じ日の別の作業はまとめて1になる', () => {
+    const m = masters({}, [visit({ visitUnit: '日', visitCount: 'day' })])
+    const { invoices } = build([...records(), rec({ date: '2026-10-06' })], m)
+    const b = invoices[0].breakdowns[0]
+    expect(b.columns.map((c) => c.unit)).toEqual(['日'])
+    // 10/5 は昼と夜の2作業だが1日として1(最初の行=昼)、10/6 で1
+    expect(b.totals).toEqual({ visitDay: 2 })
+    expect(invoices[0].subtotal).toBe(100000)
+  })
+
+  it('月いくらの単位の呼び方も自由', () => {
+    const { invoices } = build(records(), masters({}, [rate({ priceUnit: 'monthly', monthlyPrice: 300000, monthlyUnit: '月' })]))
+    expect(invoices[0].breakdowns[0].columns.map((c) => c.unit)).toEqual(['月'])
+  })
+
   it('職種ごとに単位を変えられる(同じ現場で、規制保安員は1回、作業員は時間)', () => {
     const m = masters({}, [visit(), rate({ jobType: '作業員', dayPrice: 2000 })])
     const { invoices } = build([rec(), rec({ jobType: '作業員' })], m)

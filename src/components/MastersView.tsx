@@ -1,5 +1,5 @@
 import type { ChangeEvent, ReactNode } from 'react'
-import type { Client, Company, DayNightRule, EquipmentRecord, Masters, PriceUnit, RoundingMode, Site, VisitPeople, WorkRecord } from '../types'
+import type { Client, Company, DayNightRule, EquipmentRecord, Masters, PriceUnit, RoundingMode, Site, VisitCount, VisitPeople, WorkRecord } from '../types'
 import {
   missingClients,
   missingEquipmentRates,
@@ -278,7 +278,7 @@ export default function MastersView({ masters, setMasters, records, equipment }:
       <p className="hint">
         元請け × 職種 ごとの単価です。現場IDを空欄にすると、その元請けの全現場に使います(現場IDを入れた行が優先)。
         時間単価の元請けは「円/時間」、人工の元請けは「円/人工」で入れます。
-        「単価の単位」で、規制1回いくら(1日・1現場・1作業を1回と数えます)や、月いくら(請求書ごとに1式)にもできます。
+        「単価の単位」で、規制1回いくら・1日いくら(単位の呼び方と数え方は自由に決められます)や、月いくら(請求書ごとに1つ)にもできます。
       </p>
       <MissingCallout
         count={missingRates(records, masters).length}
@@ -291,6 +291,7 @@ export default function MastersView({ masters, setMasters, records, equipment }:
           const priceUnit = r.priceUnit ?? 'standard'
           // 人の分(日勤・夜勤・残業の単価)を使うか
           const people = priceUnit === 'standard' || (priceUnit === 'visit' && r.visitPeople === 'plus')
+          const vu = r.visitUnit?.trim() || '回'
           return (
             <tr key={r.id}>
               <td>{clientSelect(r.clientId, (v) => update('rates', i, { clientId: v }))}</td>
@@ -302,7 +303,7 @@ export default function MastersView({ masters, setMasters, records, equipment }:
               <td>
                 <select value={priceUnit} onChange={(e) => update('rates', i, { priceUnit: e.target.value as PriceUnit })}>
                   <option value="standard">{billingOf(r.clientId) === 'ninku' ? '1人1日いくら(人工)' : '1時間いくら'}</option>
-                  <option value="visit">1回いくら</option>
+                  <option value="visit">1回・1日いくら(単位は自由)</option>
                   <option value="monthly">月いくら</option>
                 </select>
               </td>
@@ -314,20 +315,32 @@ export default function MastersView({ masters, setMasters, records, equipment }:
                       <input className="s" value={r.visitLabel ?? ''} placeholder="規制" onChange={(e) => update('rates', i, { visitLabel: e.target.value })} />
                     </label>
                     <label>
-                      昼の1回
-                      <input className="n" type="number" min={0} value={r.visitDayPrice ?? 0} onChange={(e) => update('rates', i, { visitDayPrice: toInt(e.target.value) })} />
-                      <span className="sub">円/回</span>
+                      単位
+                      <input className="xs" value={r.visitUnit ?? ''} placeholder="回" onChange={(e) => update('rates', i, { visitUnit: e.target.value })} />
+                      <span className="sub">(回・日・現場 など自由に)</span>
                     </label>
                     <label>
-                      夜の1回
+                      数え方
+                      <select value={r.visitCount ?? 'row'} onChange={(e) => update('rates', i, { visitCount: e.target.value as VisitCount })}>
+                        <option value="row">1作業ごとに数える</option>
+                        <option value="day">1日ごとに数える(同じ日はまとめて1)</option>
+                      </select>
+                    </label>
+                    <label>
+                      昼の1{vu}
+                      <input className="n" type="number" min={0} value={r.visitDayPrice ?? 0} onChange={(e) => update('rates', i, { visitDayPrice: toInt(e.target.value) })} />
+                      <span className="sub">円/{vu}</span>
+                    </label>
+                    <label>
+                      夜の1{vu}
                       <input className="n" type="number" min={0} value={r.visitNightPrice ?? 0} onChange={(e) => update('rates', i, { visitNightPrice: toInt(e.target.value) })} />
-                      <span className="sub">円/回</span>
+                      <span className="sub">円/{vu}</span>
                     </label>
                     <label>
                       人の分
                       <select value={r.visitPeople ?? 'none'} onChange={(e) => update('rates', i, { visitPeople: e.target.value as VisitPeople })}>
-                        <option value="none">1回の料金だけ</option>
-                        <option value="plus">1回の料金 + 人の分(日勤・夜勤の単価)</option>
+                        <option value="none">1{vu}の料金だけ</option>
+                        <option value="plus">1{vu}の料金 + 人の分(日勤・夜勤の単価)</option>
                         <option value="included">決まった人数までは込み</option>
                       </select>
                     </label>
@@ -341,7 +354,7 @@ export default function MastersView({ masters, setMasters, records, equipment }:
                         <label>
                           超えた1人
                           <input className="n" type="number" min={0} value={r.extraPersonPrice ?? 0} onChange={(e) => update('rates', i, { extraPersonPrice: toInt(e.target.value) })} />
-                          <span className="sub">円/人・回</span>
+                          <span className="sub">円/人(1行ごと)</span>
                         </label>
                       </>
                     )}
@@ -351,7 +364,14 @@ export default function MastersView({ masters, setMasters, records, equipment }:
                   <label>
                     月額
                     <input className="n" type="number" min={0} value={r.monthlyPrice ?? 0} onChange={(e) => update('rates', i, { monthlyPrice: toInt(e.target.value) })} />
-                    <span className="sub">円/月(請求書ごとに1式)</span>
+                    <span className="sub">円(請求書ごとに1つ)</span>
+                  </label>
+                )}
+                {priceUnit === 'monthly' && (
+                  <label>
+                    単位
+                    <input className="xs" value={r.monthlyUnit ?? ''} placeholder="式" onChange={(e) => update('rates', i, { monthlyUnit: e.target.value })} />
+                    <span className="sub">(式・月 など自由に)</span>
                   </label>
                 )}
                 {priceUnit === 'standard' && <span className="sub">—</span>}

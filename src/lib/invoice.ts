@@ -140,17 +140,18 @@ function personBreakdown(
           { key: 'overtime', label: '残業', unit: '時間', unitPrice: rate.overtimeHourly },
         ]
   const label = rate.visitLabel?.trim() || '1回'
+  const visitUnit = rate.visitUnit?.trim() || '回'
   const extraColumns: BreakdownColumn[] =
     unit === 'visit'
       ? [
-          { key: 'visitDay', label: `${label}(昼)`, unit: '回', unitPrice: rate.visitDayPrice ?? 0 },
-          { key: 'visitNight', label: `${label}(夜)`, unit: '回', unitPrice: rate.visitNightPrice ?? 0 },
+          { key: 'visitDay', label: `${label}(昼)`, unit: visitUnit, unitPrice: rate.visitDayPrice ?? 0 },
+          { key: 'visitNight', label: `${label}(夜)`, unit: visitUnit, unitPrice: rate.visitNightPrice ?? 0 },
           ...(visitPeople === 'included'
             ? [{ key: 'extraPeople', label: '追加人員', unit: '人' as const, unitPrice: rate.extraPersonPrice ?? 0 }]
             : []),
         ]
       : unit === 'monthly'
-        ? [{ key: 'monthly', label: '月額', unit: '式', unitPrice: rate.monthlyPrice ?? 0 }]
+        ? [{ key: 'monthly', label: '月額', unit: rate.monthlyUnit?.trim() || '式', unitPrice: rate.monthlyPrice ?? 0 }]
         : []
 
   const rows = new Map<string, RowAcc>()
@@ -203,6 +204,16 @@ function personBreakdown(
 
   // 集計値をこの数で割ると数量になる(時間 = 分 ÷ 60、按分の人工 = 分 ÷ 所定実働、1日1人工 = 人数 ÷ 1)
   const unitMinutes = (c: BreakdownColumn) => (c.unit !== '人工' ? 60 : prorate ? client.standardMinutes : 1)
+  // 1日ごとに数えるときは、その日の最初の行(開始の早い行)にだけ1を載せる。昼夜はその行で決まる
+  const firstOfDay = new Set<RowAcc>()
+  if (rate.visitCount === 'day') {
+    const byDate = new Map<string, RowAcc>()
+    for (const acc of rows.values()) {
+      const cur = byDate.get(acc.row.date)
+      if (!cur || acc.row.time < cur.row.time) byDate.set(acc.row.date, acc)
+    }
+    byDate.forEach((acc) => firstOfDay.add(acc))
+  }
   for (const acc of rows.values()) {
     for (const c of peopleColumns) {
       const m = acc.minutes[c.key] ?? 0
@@ -210,9 +221,9 @@ function personBreakdown(
       addTo(acc, c.key, m / unitMinutes(c), yen(m * c.unitPrice, unitMinutes(c)))
     }
     if (unit === 'visit') {
-      // 内訳書の1行 = 1回
+      // 内訳書の1行 = 1回(1日ごとに数えるときは、その日の最初の行だけ)
       const c = extraColumns[acc.night ? 1 : 0]
-      addTo(acc, c.key, 1, c.unitPrice)
+      if (rate.visitCount !== 'day' || firstOfDay.has(acc)) addTo(acc, c.key, 1, c.unitPrice)
       if (visitPeople === 'included') {
         const extra = Math.max(0, acc.people - (rate.includedPeople ?? 0))
         if (extra > 0) addTo(acc, 'extraPeople', extra, extra * (rate.extraPersonPrice ?? 0))

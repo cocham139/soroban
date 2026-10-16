@@ -54,12 +54,15 @@ export function newRate(clientId: string, siteId: string, jobType: string): Rate
     overtimeHourly: 0,
     priceUnit: 'standard',
     visitLabel: '規制',
+    visitUnit: '回',
+    visitCount: 'row',
     visitDayPrice: 0,
     visitNightPrice: 0,
     visitPeople: 'none',
     includedPeople: 0,
     extraPersonPrice: 0,
     monthlyPrice: 0,
+    monthlyUnit: '式',
   }
 }
 
